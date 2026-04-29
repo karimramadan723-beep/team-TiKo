@@ -140,8 +140,15 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
 .task-assign{display:flex;flex-wrap:wrap;gap:5px}
 .task-emp{padding:3px 10px;border-radius:12px;font-size:11px;cursor:pointer;border:1px solid var(--border);background:var(--bg4);color:var(--text2);transition:all .15s}
 .task-emp.selected{background:var(--greenbg);border-color:var(--green);color:var(--green)}
-/* SCROLL */
-::-webkit-scrollbar{width:5px;height:5px}
+/* SHIFT COLOR PILLS */
+.shift-pill{display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:11px;font-weight:700;padding:3px 7px;white-space:nowrap;letter-spacing:.3px}
+.shift-morning{background:#0d2b1e;color:#34d399;border:1px solid #065f46}   /* 8ص-4م, 9ص-5م, 10ص-6م, 11ص-7م */
+.shift-evening{background:#1a1a2e;color:#818cf8;border:1px solid #3730a3}   /* 3م-11م, 4م-12م */
+.shift-night  {background:#1e1020;color:#c084fc;border:1px solid #7e22ce}   /* 5م-1ص, 6م-2ص, 7م-3ص, 8م-4ص */
+.shift-off    {background:var(--redbg);color:var(--red);border:1px solid var(--red)}
+/* ABSENT REPLACEMENT BANNER */
+.absent-banner{background:#1a1200;border:1px solid var(--amber);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;font-size:12px;color:var(--amber)}
+
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
 /* DIVIDER */
@@ -398,11 +405,14 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
       <div class="card-title"><span class="icon">📋</span>توزيع التاسك اليومي</div>
       <div class="g2" style="gap:10px;margin-bottom:12px">
         <div class="field"><label class="lbl">التاريخ</label><input class="inp" id="task-date" type="date" onchange="renderTasks()"/></div>
-        <div class="field"><label class="lbl">من الساعة</label><input class="inp inp-sm" id="task-time-from" type="time" placeholder="مثال: 08:00"/></div>
-        <div class="field"><label class="lbl">لحد الساعة</label><input class="inp inp-sm" id="task-time-to" type="time" placeholder="مثال: 16:00"/></div>
+        <div class="field"><label class="lbl">من الساعة</label><input class="inp inp-sm" id="task-time-from" type="time" value="08:00"/></div>
+        <div class="field"><label class="lbl">لحد الساعة</label><input class="inp inp-sm" id="task-time-to" type="time" value="04:00"/></div>
       </div>
       <div id="tasks-list"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="saveTasks()">💾 حفظ التوزيع</button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" style="flex:1" onclick="saveTasks()">💾 حفظ التوزيع</button>
+        <button class="btn" id="smart-dist-btn" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-weight:700;display:flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;font-size:13px;font-family:Cairo,sans-serif;cursor:pointer;border:none;transition:all .2s;white-space:nowrap" onclick="smartDistribute()">⚡ توزيع ذكي</button>
+      </div>
     </div>
     <div class="card">
       <div class="card-title"><span class="icon">📊</span>إحصائيات التاسك — الشهر</div>
@@ -1568,31 +1578,116 @@ function delOrder(emp,id){
 }
 
 // ===== TASKS =====
+
+// Canonical shift hours (supports overnight: e.g. 8م→4ص = 20→28)
+const SHIFT_HOURS={
+  '8ص-4م':{s:8,e:16},'9ص-5م':{s:9,e:17},'10ص-6م':{s:10,e:18},'11ص-7م':{s:11,e:19},
+  '3م-11م':{s:15,e:23},'4م-12م':{s:16,e:24},'5م-1ص':{s:17,e:25},'6م-2ص':{s:18,e:26},
+  '7م-3ص':{s:19,e:27},'8م-4ص':{s:20,e:28}
+};
+
+function toDecHour(timeStr){
+  if(!timeStr) return null;
+  const [h,m]=timeStr.split(':').map(Number);
+  return h+m/60;
+}
+
+// Returns employees whose shift overlaps [fromH, toH] on dateStr
+// toH can be >24 for overnight slots (e.g. 28 = 04:00 next day)
 function getEmpWorkingAtTime(dateStr, fromTime, toTime){
-  // Parse task time range to hours
-  const toH = t => { if(!t) return null; const [h,m]=t.split(':').map(Number); return h+m/60; };
-  const taskFrom=toH(fromTime), taskTo=toH(toTime);
-  const shiftHours={
-    '8ص-4م':{s:8,e:16},'9ص-5م':{s:9,e:17},'10ص-6م':{s:10,e:18},'11ص-7م':{s:11,e:19},
-    '3م-11م':{s:15,e:23},'4م-12م':{s:16,e:24},'5م-1ص':{s:17,e:25},'6م-2ص':{s:18,e:26},
-    '7م-3ص':{s:19,e:27},'8م-4ص':{s:20,e:28}
-  };
+  let fH=toDecHour(fromTime), tH=toDecHour(toTime);
+  if(fH===null||tH===null) return EMPLOYEES.filter(e=>{
+    const sh=getEmpShiftForDay(e,dateStr); return sh&&sh!=='أوف';
+  });
+  // Overnight task window: e.g. 08:00→04:00 means fH=8, tH=4 → normalise tH+=24
+  if(tH<=fH) tH+=24;
   return EMPLOYEES.filter(emp=>{
     const shift=getEmpShiftForDay(emp,dateStr);
     if(!shift||shift==='أوف') return false;
-    const sh=shiftHours[shift];
-    if(!sh) return false; // no time filter if shift unknown → include
-    if(taskFrom===null||taskTo===null) return true; // no time specified → show all working
-    // overlap: emp works during [taskFrom, taskTo]
-    return sh.s < taskTo && sh.e > taskFrom;
+    const sh=SHIFT_HOURS[shift]; if(!sh) return false;
+    // overlap
+    return sh.s < tH && sh.e > fH;
+  });
+}
+
+// Returns distinct time-slot groups for a day based on schedule
+// e.g. [{label:'صباحي 8ص-11م', emps:[...], from:'08:00', to:'23:00'}, ...]
+function getScheduleSlots(dateStr){
+  // Collect shift ranges for each working employee
+  const empShifts = EMPLOYEES.map(emp=>{
+    const shift=getEmpShiftForDay(emp,dateStr);
+    if(!shift||shift==='أوف') return null;
+    const sh=SHIFT_HOURS[shift]; if(!sh) return null;
+    return {emp, shift, s:sh.s, e:sh.e};
+  }).filter(Boolean);
+
+  if(!empShifts.length) return [];
+
+  // Build time breakpoints from all shift start/end times, then group consecutive employees
+  // Strategy: find natural clusters by shift start time
+  const byShift={};
+  empShifts.forEach(x=>{
+    if(!byShift[x.shift]) byShift[x.shift]={s:x.s,e:x.e,emps:[]};
+    byShift[x.shift].emps.push(x.emp);
+  });
+
+  // Merge shifts that fully overlap into combined slots
+  // Each slot = employees sharing the SAME shift OR shifts that are running concurrently
+  // For simplicity: sort by start, build slots where employees overlap in time
+  const shifts=Object.entries(byShift).sort((a,b)=>a[1].s-b[1].s);
+
+  // Find contiguous time windows where we have a distinct set of employees
+  // Collect all boundary points
+  const points=[...new Set(shifts.flatMap(([,v])=>[v.s,v.e]))].sort((a,b)=>a-b);
+
+  const slots=[];
+  for(let i=0;i<points.length-1;i++){
+    const mid=(points[i]+points[i+1])/2;
+    const active=empShifts.filter(x=>x.s<=mid && x.e>mid);
+    if(!active.length) continue;
+    // Check if same active set as previous slot → merge
+    const key=active.map(x=>x.emp).sort().join(',');
+    if(slots.length && slots[slots.length-1]._key===key){
+      slots[slots.length-1].e=points[i+1];
+    } else {
+      slots.push({
+        s:points[i], e:points[i+1],
+        emps:active.map(x=>x.emp),
+        shifts:[...new Set(active.map(x=>x.shift))],
+        _key:key
+      });
+    }
+  }
+
+  // Format into readable labels
+  function hToStr(h){
+    const hh=h%24; const mm=0;
+    return String(hh).padStart(2,'0')+':00';
+  }
+  function hToLabel(h){
+    const hh=h%24;
+    if(hh<12) return hh+'ص';
+    if(hh===12) return '12م';
+    return (hh-12)+'م';
+  }
+
+  return slots.map((sl,i)=>{
+    const fromStr=hToStr(sl.s), toStr=hToStr(sl.e);
+    const label=`الفترة ${i+1}: ${hToLabel(sl.s)} → ${hToLabel(sl.e)} (${sl.emps.length} موظف)`;
+    return {label, from:fromStr, to:toStr, emps:sl.emps, shifts:sl.shifts, s:sl.s, e:sl.e};
   });
 }
 
 function renderTasks(){
   const dateVal=document.getElementById('task-date').value||todayStr();
   document.getElementById('task-date').value=dateVal;
-  const fromTime=document.getElementById('task-time-from').value;
-  const toTime=document.getElementById('task-time-to').value;
+
+  const fromEl=document.getElementById('task-time-from');
+  const toEl=document.getElementById('task-time-to');
+  if(!fromEl.value) fromEl.value='08:00';
+  if(!toEl.value) toEl.value='04:00';
+  const fromTime=fromEl.value;
+  const toTime=toEl.value;
 
   const schedInfo=EMPLOYEES.map(emp=>{
     const shift=getEmpShiftForDay(emp,dateVal);
@@ -1601,43 +1696,164 @@ function renderTasks(){
   const working=schedInfo.filter(s=>s.shift&&!s.isOff);
   const off=schedInfo.filter(s=>s.isOff);
   const noSched=schedInfo.filter(s=>!s.shift);
+  const workingAtTime=getEmpWorkingAtTime(dateVal,fromTime,toTime);
 
-  // Employees working during the task time window
-  const workingAtTime = getEmpWorkingAtTime(dateVal, fromTime, toTime);
+  // ── Build schedule slots for auto-distribution panel ──
+  const slots=getScheduleSlots(dateVal);
+
+  const isFemColor=e=>FEMALE_EMPLOYEES.includes(e)?'color:var(--pink);font-weight:700':'';
+
+  let slotHtml='';
+  if(slots.length){
+    slotHtml=`<div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:8px">📅 الفترات المكتشفة تلقائياً من الـ Schedule — ${dateVal}</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+      ${slots.map((sl,i)=>{
+        const shiftsLabel=sl.shifts.join(' | ');
+        return `<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:9px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--teal)">${sl.label}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">🕐 ${shiftsLabel}</div>
+            <div style="font-size:11px;margin-top:3px">${sl.emps.map(e=>`<span style="${isFemColor(e)}">${shortName(e)}</span>`).join(' · ')}</div>
+          </div>
+          <button class="btn btn-sm" style="background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;border:none;font-family:Cairo,sans-serif;font-weight:700;cursor:pointer;white-space:nowrap"
+            onclick="autoDistributeSlot('${dateVal}',${sl.s},${sl.e})">⚡ وزّع الفترة دي</button>
+        </div>`;
+      }).join('')}
+      </div>
+      <button class="btn btn-sm" style="margin-top:8px;width:100%;background:linear-gradient(135deg,#0f4c75,#1b6ca8);color:#fff;border:none;font-family:Cairo,sans-serif;font-weight:700;cursor:pointer"
+        onclick="autoDistributeAllSlots('${dateVal}')">⚡⚡ وزّع كل الفترات دفعة واحدة</button>
+    </div>`;
+  } else if(working.length){
+    slotHtml=`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text2)">
+      ℹ️ كل الموظفين على نفس الشيفت — استخدم ⚡ توزيع ذكي
+    </div>`;
+  }
 
   let schedHint='';
   if(working.length||off.length){
-    schedHint=`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;font-size:12px">
-      <div style="font-weight:700;color:var(--blue);margin-bottom:6px">📅 Schedule — ${dateVal}${fromTime&&toTime?' | 🕐 '+fromTime+' → '+toTime:''}</div>
-      ${working.length?`<div style="color:var(--green);margin-bottom:4px">✅ Working: ${working.map(s=>{const isFem=FEMALE_EMPLOYEES.includes(s.emp);return`<strong style="${isFem?'color:var(--pink)':''}">${shortName(s.emp)}</strong> (${s.shift})`;}).join(' | ')}</div>`:''}
-      ${off.length?`<div style="color:var(--red);margin-bottom:4px">🔴 Off: ${off.map(s=>shortName(s.emp)).join(' | ')}</div>`:''}
-      ${fromTime&&toTime&&workingAtTime.length?`<div style="color:var(--teal);margin-top:4px">⏱ المتاحين في هذا الوقت: <strong>${workingAtTime.map(e=>shortName(e)).join(' | ')}</strong></div>`:''}
-      ${noSched.length?`<div style="color:var(--text3);margin-top:2px">⚪ No schedule: ${noSched.map(s=>shortName(s.emp)).join(' | ')}</div>`:''}
+    schedHint=`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:9px 12px;margin-bottom:10px;font-size:12px">
+      ${working.length?`<div style="color:var(--green);margin-bottom:3px">✅ شغالين: ${working.map(s=>{const f=FEMALE_EMPLOYEES.includes(s.emp);return`<strong style="${f?'color:var(--pink)':''};">${shortName(s.emp)}</strong> <span style="color:var(--text3)">(${s.shift})</span>`;}).join(' · ')}</div>`:''}
+      ${off.length?`<div style="color:var(--red)">🔴 أوف: ${off.map(s=>shortName(s.emp)).join(' · ')}</div>`:''}
+      ${noSched.length?`<div style="color:var(--text3);margin-top:2px">⚪ مش محدد: ${noSched.map(s=>shortName(s.emp)).join(' · ')}</div>`:''}
     </div>`;
   }
 
   const list=document.getElementById('tasks-list');
-  list.innerHTML=schedHint+TASKS.map(t=>`
+  list.innerHTML=slotHtml+schedHint+TASKS.map(t=>`
     <div class="task-item">
       <div><div class="task-name">${t.name}</div></div>
       <div class="task-assign">
         ${EMPLOYEES.map(e=>{
           const empSched=schedInfo.find(s=>s.emp===e);
           const isOff=empSched&&empSched.isOff;
-          const isAvailable=workingAtTime.includes(e);
+          const isAvail=workingAtTime.includes(e);
           const isFemale=FEMALE_EMPLOYEES.includes(e);
-          // Auto-highlight employees available at this time
-          const autoSel=(fromTime&&toTime&&isAvailable&&!isOff);
-          return `<div class="task-emp${isOff?' opacity-50':autoSel?' selected':''}" id="te-${t.id}-${e.replace(/\s/g,'_')}"
-            style="${isOff?'opacity:0.4;text-decoration:line-through':''}${isFemale?';color:var(--pink);border-color:var(--pinkborder)':''}"
-            onclick="toggleTaskEmp('${t.id}','${e}',this)">${shortName(e)}${isOff?' (Off)':''}</div>`;
+          return `<div class="task-emp${isOff?' ':''}${isAvail&&!isOff?' selected':''}" id="te-${t.id}-${e.replace(/\s/g,'_')}"
+            style="${isOff?'opacity:0.35;text-decoration:line-through;pointer-events:none':''}${isFemale?';color:var(--pink);border-color:var(--pinkborder)':''}"
+            onclick="toggleTaskEmp('${t.id}','${e}',this)">${shortName(e)}${isOff?' 🔴':''}</div>`;
         }).join('')}
       </div>
     </div>`).join('');
   renderTaskStats();
   renderTaskTable();
 }
+
 function toggleTaskEmp(tid,emp,el){el.classList.toggle('selected');}
+
+// Distribute ONE specific time slot (from autodetected slots)
+function autoDistributeSlot(dateVal, slotS, slotE){
+  const STRONG=['لينك حلوان طلبات','لينك زهراء المعادي','واتساب الـ18','واتساب الـ19'];
+  const WEAK  =['هاري أب','حاضر'];
+
+  // Employees active in this slot
+  const slotEmps=EMPLOYEES.filter(emp=>{
+    const sh=getEmpShiftForDay(emp,dateVal);
+    if(!sh||sh==='أوف') return false;
+    const s=SHIFT_HOURS[sh]; if(!s) return false;
+    return s.s<=slotS+0.5 && s.e>=slotE-0.5; // must cover most of the slot
+  });
+  if(!slotEmps.length){showToast('⚠️ مفيش موظفين في الفترة دي','amber');return;}
+
+  // Yesterday avoidance
+  const yd=new Date(dateVal); yd.setDate(yd.getDate()-1);
+  const ydStr=yd.toISOString().split('T')[0];
+  const ydTasks={};
+  (DB.tasks||[]).filter(t=>t.date===ydStr).forEach(t=>{
+    (t.employees||[]).forEach(emp=>{if(!ydTasks[emp])ydTasks[emp]=[];ydTasks[emp].push(t.task);});
+  });
+
+  function shuffle(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
+  const shuffled=shuffle(slotEmps);
+
+  // Assign strong tasks first
+  const assigned={}; // taskName → Set<emp>
+  TASKS.forEach(t=>assigned[t.name]=new Set());
+  const primaryOf={}; // emp → strong task name
+  let pool=[...shuffled];
+
+  TASKS.filter(t=>STRONG.includes(t.name)).forEach(task=>{
+    let cands=pool.filter(e=>!(ydTasks[e]||[]).includes(task.name));
+    if(!cands.length) cands=[...pool];
+    if(!cands.length) return;
+    const picked=cands[0];
+    assigned[task.name].add(picked);
+    primaryOf[picked]=task.name;
+    pool=pool.filter(e=>e!==picked);
+  });
+
+  // Leftover employees → secondary on strong tasks
+  pool.forEach((emp,i)=>{
+    const t=TASKS.filter(t=>STRONG.includes(t.name))[i%TASKS.filter(t=>STRONG.includes(t.name)).length];
+    if(t) assigned[t.name].add(emp);
+  });
+
+  // Weak tasks → pick from employees who already have a strong task
+  const withStrong=shuffle(Object.keys(primaryOf));
+  const weakLoad={};
+  TASKS.filter(t=>WEAK.includes(t.name)).forEach(task=>{
+    let cands=[...withStrong].filter(e=>!(ydTasks[e]||[]).includes(task.name))
+      .sort((a,b)=>(weakLoad[a]||0)-(weakLoad[b]||0));
+    if(!cands.length) cands=[...withStrong];
+    if(!cands.length) return;
+    const picked=cands[0];
+    assigned[task.name].add(picked);
+    weakLoad[picked]=(weakLoad[picked]||0)+1;
+  });
+
+  // Remove existing entries for this date+slot then save
+  DB.tasks=(DB.tasks||[]).filter(t=>{
+    if(t.date!==dateVal) return true;
+    // remove entries whose time window matches this slot
+    const tF=toDecHour(t.timeFrom||'08:00'), tT=toDecHour(t.timeTo||'04:00');
+    const normT=tT<=tF?tT+24:tT;
+    return !(Math.abs(tF-slotS)<0.1 && Math.abs(normT-slotE)<0.1);
+  });
+
+  const fromStr=String(slotS%24).padStart(2,'0')+':00';
+  const toStr=String(slotE%24).padStart(2,'0')+':00';
+
+  TASKS.forEach(t=>{
+    const emps=[...assigned[t.name]];
+    if(emps.length){
+      DB.tasks.push({id:Date.now()+Math.random(),date:dateVal,task:t.name,employees:emps,timeFrom:fromStr,timeTo:toStr});
+    }
+  });
+  save(); renderTasks();
+  showToast(`✅ تم توزيع الفترة ${String(slotS%24)}:00 → ${String(slotE%24)}:00`,'blue');
+}
+
+// Distribute ALL slots in one shot
+function autoDistributeAllSlots(dateVal){
+  const slots=getScheduleSlots(dateVal);
+  if(!slots.length){showToast('⚠️ مفيش Schedule محدد للتاريخ ده','amber');return;}
+  // Clear existing entries for this date
+  DB.tasks=(DB.tasks||[]).filter(t=>t.date!==dateVal);
+  save();
+  slots.forEach(sl=>autoDistributeSlot(dateVal,sl.s,sl.e));
+  showToast(`✅ تم توزيع ${slots.length} فترات تلقائياً!`,'blue');
+}
+
 function saveTasks(){
   const date=document.getElementById('task-date').value;
   const fromTime=document.getElementById('task-time-from').value;
@@ -1708,6 +1924,175 @@ function saveEditTask(id){
     employees:emps,
   };
   save(); closeModal(); renderTasks(); showToast('✅ اتعدّل!');
+}
+
+// ===== SMART DISTRIBUTE =====
+function smartDistribute(){
+  const dateVal = document.getElementById('task-date').value || todayStr();
+
+  // ── التصنيف ──
+  // تاسكات قوية: موظف لوحده كافي (أوردرات عالية)
+  const STRONG_TASKS = ['لينك حلوان طلبات','لينك زهراء المعادي','واتساب الـ18','واتساب الـ19'];
+  // تاسكات ضعيفة: معدل أوردر ضعيف → لا يُعطى لموظف منفرد، يُضاف كـ secondary
+  const WEAK_TASKS   = ['هاري أب','حاضر'];
+
+  // 1. الموظفين الحاضرين
+  let presentEmps = EMPLOYEES.filter(emp => {
+    const attDay = (DB.att[emp]||{})[dateVal];
+    if(attDay) return true;
+    const sh = getEmpShiftForDay(emp, dateVal);
+    return sh && sh !== 'أوف';
+  });
+  if(!presentEmps.length) presentEmps = [...EMPLOYEES];
+
+  // 2. تاسكات أمبارح لكل موظف (لتجنب التكرار)
+  const yesterday = new Date(dateVal);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const ydStr = yesterday.toISOString().split('T')[0];
+  const ydTasks = {};
+  (DB.tasks||[]).filter(t=>t.date===ydStr).forEach(t=>{
+    (t.employees||[]).forEach(emp=>{
+      if(!ydTasks[emp]) ydTasks[emp]=[];
+      ydTasks[emp].push(t.task);
+    });
+  });
+
+  // 3. تقييم الموظف (للتاسكات الصعبة)
+  function empRating(emp){
+    const qual=DB.quality[emp]||[];
+    if(!qual.length) return 70;
+    const crit=qual.filter(q=>q.type==='critical').length;
+    const nc  =qual.filter(q=>q.type==='noncritical').length;
+    return Math.max(0,100-crit*15-nc*5);
+  }
+
+  // 4. Shuffle
+  function shuffle(arr){
+    const a=[...arr];
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+    return a;
+  }
+  const shuffled = shuffle(presentEmps);
+
+  // ══════════════════════════════════════════════════════
+  // 5. توزيع التاسكات القوية أولاً — كل موظف على تاسك واحد قوي
+  // ══════════════════════════════════════════════════════
+  // assigned: taskId → Set of employees
+  const assigned = {};
+  TASKS.forEach(t=>assigned[t.id]=new Set());
+
+  const strongTaskObjs = TASKS.filter(t=>STRONG_TASKS.includes(t.name));
+  const weakTaskObjs   = TASKS.filter(t=>WEAK_TASKS.includes(t.name));
+
+  // مجموعة الموظفين اللي اتوزعوا على تاسك قوي
+  const primaryAssigned = {}; // emp → strong taskId
+
+  // ترتيب القوية: مفيش أولوية خاصة، كلها سواء
+  let empPool = [...shuffled];
+
+  strongTaskObjs.forEach(task => {
+    // مرشحون: لم يأخذوا تاسك قوي بعد + لم يكونوا على نفس التاسك أمبارح
+    let candidates = empPool.filter(emp=>!(ydTasks[emp]||[]).includes(task.name));
+    if(!candidates.length) candidates=[...empPool]; // ارجع بدون قيد أمبارح
+    if(!candidates.length) return;
+
+    const picked = candidates[0];
+    assigned[task.id].add(picked);
+    primaryAssigned[picked] = task.id;
+    empPool = empPool.filter(e=>e!==picked); // أزله من الـ pool
+  });
+
+  // ══════════════════════════════════════════════════════
+  // 6. توزيع التاسكات الضعيفة (هاري أب + حاضر)
+  //    القاعدة: الموظف المعين على التاسك الضعيف لازم يكون
+  //    معينًا أيضاً على تاسك قوي (ما يمسكش الضعيف لوحده)
+  //    → نختار موظف من اللي عندهم تاسك قوي بالفعل
+  //    → ونضيف التاسك الضعيف عليه كـ secondary
+  //    → نتجنب نفس الموظف على التاسكين الضعيفين معاً
+  // ══════════════════════════════════════════════════════
+  const empWithStrong = Object.keys(primaryAssigned); // الموظفين اللي عندهم تاسك قوي
+
+  // لو مفيش موظفين على تاسكات قوية (edge case)، خد أي موظف حاضر
+  const weakCandidatePool = empWithStrong.length ? shuffle([...empWithStrong]) : shuffle([...presentEmps]);
+
+  // تتبع مين أخد تاسك ضعيف بالفعل (عشان نوزع على غيره لو ممكن)
+  const assignedWeakCount = {};
+
+  weakTaskObjs.forEach(task=>{
+    // مرشحون: من pool الضعيفة، لم يكونوا على نفس التاسك أمبارح، بأقل عدد تاسكات ضعيفة
+    let candidates = weakCandidatePool
+      .filter(emp=>!(ydTasks[emp]||[]).includes(task.name))
+      .sort((a,b)=>(assignedWeakCount[a]||0)-(assignedWeakCount[b]||0));
+
+    if(!candidates.length){
+      candidates=[...weakCandidatePool].sort((a,b)=>(assignedWeakCount[a]||0)-(assignedWeakCount[b]||0));
+    }
+    if(!candidates.length) return;
+
+    const picked=candidates[0];
+    assigned[task.id].add(picked);
+    assignedWeakCount[picked]=(assignedWeakCount[picked]||0)+1;
+  });
+
+  // ══════════════════════════════════════════════════════
+  // 7. الموظفون الباقيون (لم يحصلوا على تاسك قوي بعد توزيع القوية)
+  //    → يُضافون كـ secondary على تاسكات قوية بشكل موزّع
+  // ══════════════════════════════════════════════════════
+  const remainingEmps = shuffled.filter(e=>!primaryAssigned[e]);
+  remainingEmps.forEach((emp,i)=>{
+    // وزّع على التاسكات القوية بالتدوير
+    const targetTask = strongTaskObjs[i % strongTaskObjs.length];
+    if(targetTask) assigned[targetTask.id].add(emp);
+  });
+
+  // ══════════════════════════════════════════════════════
+  // 8. تطبيق على الـ UI
+  // ══════════════════════════════════════════════════════
+  TASKS.forEach(t=>{
+    EMPLOYEES.forEach(e=>{
+      const el=document.getElementById(`te-${t.id}-${e.replace(/\s/g,'_')}`);
+      if(el) el.classList.remove('selected');
+    });
+    assigned[t.id].forEach(emp=>{
+      const el=document.getElementById(`te-${t.id}-${emp.replace(/\s/g,'_')}`);
+      if(el) el.classList.add('selected');
+    });
+  });
+
+  // ══════════════════════════════════════════════════════
+  // 9. Toast ملخص
+  // ══════════════════════════════════════════════════════
+  // بناء رسالة: لكل موظف → تاسكاته
+  const empTaskMap={};
+  TASKS.forEach(t=>{
+    assigned[t.id].forEach(emp=>{
+      if(!empTaskMap[emp]) empTaskMap[emp]=[];
+      empTaskMap[emp].push(t.name);
+    });
+  });
+  const lines = presentEmps.map(emp=>{
+    const tasks=(empTaskMap[emp]||[]);
+    const strongOnes=tasks.filter(n=>STRONG_TASKS.includes(n));
+    const weakOnes  =tasks.filter(n=>WEAK_TASKS.includes(n));
+    let tag='';
+    if(weakOnes.length && !strongOnes.length) tag=' ⚠️';
+    return `<strong>${shortName(emp)}</strong>: ${tasks.join(' + ')||'—'}${tag}`;
+  }).join('<br>');
+
+  // Modal عرض النتيجة
+  const modal=document.getElementById('modal-content');
+  modal.innerHTML=`
+    <div class="modal-title" style="color:var(--blue)">⚡ نتيجة التوزيع الذكي <span class="modal-close" onclick="closeModal()">✕</span></div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:13px;line-height:2">
+      ${lines}
+    </div>
+    <div style="margin-top:10px;font-size:11px;color:var(--text3);padding:8px 10px;background:var(--amberbg);border:1px solid var(--amber);border-radius:6px">
+      💡 هاري أب وحاضر اتوزعوا على موظفين شغالين على تاسكات قوية — مش لوحدهم
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="closeModal()">✅ تمام، هحفظ دلوقتي</button>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+  showToast('⚡ التوزيع الذكي جاهز — راجع النتيجة وحفظ!','blue');
 }
 
 // ===== DAY OFF =====
@@ -2532,6 +2917,15 @@ function getDaysInRange(from,to){
   return days;
 }
 
+function shiftCellStyle(val){
+  if(!val||val==='') return {bg:'var(--bg3)',color:'var(--text3)',border:'var(--border)'};
+  if(val==='أوف') return {bg:'#1a0a0a',color:'#f87171',border:'#7f1d1d'};
+  const h=SHIFT_HOURS[val]?.s??8;
+  if(h<12)  return {bg:'#0a1f12',color:'#34d399',border:'#065f46'}; // صباحي
+  if(h<17)  return {bg:'#0f172a',color:'#818cf8',border:'#3730a3'}; // عصري
+  return          {bg:'#140a1f',color:'#c084fc',border:'#7e22ce'};   // ليلي
+}
+
 function renderSchedGrid(){
   const from=document.getElementById('sched-from').value;
   const to=document.getElementById('sched-to').value;
@@ -2543,45 +2937,51 @@ function renderSchedGrid(){
   const saved=(DB.schedule['w'+currentSchedWeek]||{}).shifts||{};
   const today=todayStr();
 
-  let html=`<table style="width:100%;font-size:12px">
-    <thead><tr><th style="background:var(--bg3);padding:8px 10px;text-align:right;white-space:nowrap">الموظف</th>
-    ${days.map(d=>{
-      const dn=new Date(d+' 00:00:00');
-      const isToday=d===today;
-      return `<th style="background:var(--bg3);padding:6px 4px;text-align:center;min-width:80px;${isToday?'color:var(--red);border-bottom:2px solid var(--red)':''}">
-        <div style="font-size:10px;color:var(--text3)">${dayNames[dn.getDay()]}</div>
-        <div style="font-weight:700;font-size:11px">${d.slice(5)}</div>
-      </th>`;
-    }).join('')}
+  let html=`<table style="width:100%;font-size:12px;border-collapse:collapse">
+    <thead><tr>
+      <th style="background:var(--bg3);padding:10px 12px;text-align:right;border-bottom:2px solid var(--border2);white-space:nowrap;font-size:12px;color:var(--text2)">الموظف</th>
+      ${days.map(d=>{
+        const dn=new Date(d+' 00:00:00');
+        const isToday=d===today;
+        const dayName=dayNames[dn.getDay()];
+        return `<th style="background:${isToday?'var(--bluebg)':'var(--bg3)'};padding:8px 4px;text-align:center;min-width:88px;border-bottom:2px solid ${isToday?'var(--blue)':'var(--border2)'};border-left:1px solid var(--border)">
+          <div style="font-size:10px;font-weight:600;color:${isToday?'var(--blue)':'var(--text3)'}">${dayName}</div>
+          <div style="font-size:12px;font-weight:800;color:${isToday?'var(--blue)':'var(--text)'};margin-top:2px">${d.slice(5)}</div>
+        </th>`;
+      }).join('')}
     </tr></thead>
     <tbody>
-    ${EMPLOYEES.map(emp=>`<tr>
-      <td style="font-weight:700;padding:8px 10px;white-space:nowrap;border-bottom:1px solid var(--border)">${shortName(emp)}</td>
-      ${days.map(d=>{
-        const key=emp+'|'+d;
-        const val=saved[key]||'';
-        const isOff=val==='أوف';
-        const isToday=d===today;
-        return `<td style="padding:3px;text-align:center;border-bottom:1px solid var(--border);${isToday?'background:var(--bluebg)':''}">
-          <select class="inp inp-sm" id="sc-${emp.replace(/\s/g,'_')}-${d}"
-            style="padding:3px 2px;font-size:11px;min-width:72px;background:${isOff?'var(--redbg)':'var(--bg3)'};color:${isOff?'var(--red)':'var(--text)'};border-color:${isOff?'var(--red)':'var(--border)'}"
-            onchange="onSchedChange(this,'${emp}','${d}')">
-            <option value="">—</option>
-            ${SHIFTS.map(s=>`<option value="${s}"${val===s?' selected':''}>${s}</option>`).join('')}
-          </select>
-        </td>`;
-      }).join('')}
-    </tr>`).join('')}
+    ${EMPLOYEES.map((emp,ei)=>{
+      const isFemale=FEMALE_EMPLOYEES.includes(emp);
+      const rowBg=ei%2===0?'var(--bg2)':'var(--bg3)';
+      return `<tr style="background:${rowBg}">
+        <td style="font-weight:700;padding:8px 12px;white-space:nowrap;border-bottom:1px solid var(--border);border-left:1px solid var(--border);color:${isFemale?'var(--pink)':'var(--text)'};font-size:13px">${shortName(emp)}</td>
+        ${days.map(d=>{
+          const key=emp+'|'+d;
+          const val=saved[key]||'';
+          const isToday=d===today;
+          const cs=shiftCellStyle(val);
+          return `<td style="padding:4px;text-align:center;border-bottom:1px solid var(--border);border-left:1px solid var(--border);${isToday?'background:rgba(74,144,226,0.06)':''}">
+            <select class="inp inp-sm" id="sc-${emp.replace(/\s/g,'_')}-${d}"
+              style="padding:4px 2px;font-size:11px;min-width:76px;font-weight:600;text-align:center;
+                background:${cs.bg};color:${cs.color};border-color:${cs.border};border-radius:6px;cursor:pointer"
+              onchange="onSchedChange(this,'${emp}','${d}')">
+              <option value="">—</option>
+              ${SHIFTS.map(s=>`<option value="${s}"${val===s?' selected':''}>${s}</option>`).join('')}
+            </select>
+          </td>`;
+        }).join('')}
+      </tr>`;
+    }).join('')}
     </tbody></table>`;
   wrap.innerHTML=html;
 }
 
 function onSchedChange(sel,emp,date){
-  const val=sel.value;
-  const isOff=val==='أوف';
-  sel.style.background=isOff?'var(--redbg)':'var(--bg3)';
-  sel.style.color=isOff?'var(--red)':'var(--text)';
-  sel.style.borderColor=isOff?'var(--red)':'var(--border)';
+  const cs=shiftCellStyle(sel.value);
+  sel.style.background=cs.bg;
+  sel.style.color=cs.color;
+  sel.style.borderColor=cs.border;
 }
 
 function saveSchedWeek(){
@@ -2744,6 +3144,11 @@ function delBreakCover(id){
   save(); renderBreakCoverList(); renderSchedTodayView(); showToast('🗑 اتمسح!');
 }
 
+function shiftLabel(s){
+  const cs=shiftCellStyle(s);
+  return `<span style="display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700;background:${cs.bg};color:${cs.color};border:1px solid ${cs.border}">${s}</span>`;
+}
+
 function renderShiftStats(){
   const el=document.getElementById('sched-stats-wrap');
   if(!el) return;
@@ -2761,22 +3166,30 @@ function renderShiftStats(){
   }
   const usedShifts=[...new Set(Object.values(empShifts).flatMap(s=>Object.keys(s)))].filter(s=>s!=='أوف');
   if(!usedShifts.length){el.innerHTML='<div style="color:var(--text3);padding:12px;font-size:13px">مفيش شيفتات متسجلة لحد دلوقتي</div>';return;}
-  let html=`<table style="width:100%;font-size:12px">
+  // Sort shifts by start hour
+  usedShifts.sort((a,b)=>(SHIFT_HOURS[a]?.s??99)-(SHIFT_HOURS[b]?.s??99));
+  let html=`<table style="width:100%;font-size:12px;border-collapse:collapse">
     <thead><tr>
-      <th style="background:var(--bg3);padding:8px 10px;text-align:right">الموظف</th>
-      ${usedShifts.map(s=>`<th style="background:var(--bg3);padding:6px 8px;text-align:center;white-space:nowrap">${s}</th>`).join('')}
-      <th style="background:var(--bg3);padding:6px 8px;text-align:center;color:var(--red)">أوف</th>
-      <th style="background:var(--bg3);padding:6px 8px;text-align:center">إجمالي</th>
+      <th style="background:var(--bg3);padding:8px 12px;text-align:right;border-bottom:2px solid var(--border2)">الموظف</th>
+      ${usedShifts.map(s=>`<th style="background:var(--bg3);padding:6px 8px;text-align:center;border-bottom:2px solid var(--border2);white-space:nowrap">${shiftLabel(s)}</th>`).join('')}
+      <th style="background:var(--bg3);padding:6px 8px;text-align:center;border-bottom:2px solid var(--border2)">${shiftLabel('أوف')}</th>
+      <th style="background:var(--bg3);padding:6px 8px;text-align:center;border-bottom:2px solid var(--border2);color:var(--text2)">إجمالي</th>
     </tr></thead><tbody>
-    ${EMPLOYEES.map(emp=>{
+    ${EMPLOYEES.map((emp,ei)=>{
       const shifts=empShifts[emp]||{};
       const offCount=shifts['أوف']||0;
       const total=Object.values(shifts).reduce((s,n)=>s+n,0);
-      return `<tr>
-        <td style="font-weight:700;padding:8px 10px;border-bottom:1px solid var(--border)">${shortName(emp)}</td>
-        ${usedShifts.map(s=>{const c=shifts[s]||0;return `<td style="text-align:center;padding:6px;border-bottom:1px solid var(--border)">${c?`<span class="badge badge-blue">${c}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`;}).join('')}
-        <td style="text-align:center;padding:6px;border-bottom:1px solid var(--border)">${offCount?`<span class="badge badge-red">${offCount}</span>`:'—'}</td>
-        <td style="text-align:center;padding:6px;border-bottom:1px solid var(--border);font-weight:700">${total}</td>
+      const isFem=FEMALE_EMPLOYEES.includes(emp);
+      const rowBg=ei%2===0?'var(--bg2)':'var(--bg3)';
+      return `<tr style="background:${rowBg}">
+        <td style="font-weight:700;padding:8px 12px;border-bottom:1px solid var(--border);color:${isFem?'var(--pink)':'var(--text)'}">${shortName(emp)}</td>
+        ${usedShifts.map(s=>{
+          const c=shifts[s]||0;
+          const cs=shiftCellStyle(s);
+          return `<td style="text-align:center;padding:6px;border-bottom:1px solid var(--border)">${c?`<span style="display:inline-block;padding:2px 10px;border-radius:5px;font-size:12px;font-weight:800;background:${cs.bg};color:${cs.color};border:1px solid ${cs.border}">${c}</span>`:'<span style="color:var(--text3)">—</span>'}</td>`;
+        }).join('')}
+        <td style="text-align:center;padding:6px;border-bottom:1px solid var(--border)">${offCount?`<span style="display:inline-block;padding:2px 10px;border-radius:5px;font-size:12px;font-weight:800;background:#1a0a0a;color:#f87171;border:1px solid #7f1d1d">${offCount}</span>`:'—'}</td>
+        <td style="text-align:center;padding:6px;border-bottom:1px solid var(--border);font-weight:800;font-size:14px;color:var(--text)">${total}</td>
       </tr>`;
     }).join('')}
     </tbody></table>`;
