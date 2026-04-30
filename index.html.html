@@ -578,8 +578,9 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
         <div class="g2" style="gap:10px">
           <div class="field"><label class="lbl">رقم الشات (العميل)</label><input class="inp" id="q-chat-num" placeholder="رقم أو ID..."/></div>
           <div class="field"><label class="lbl">تاريخ الشات</label><input class="inp" id="q-chat-date" type="date"/></div>
-          <div class="field"><label class="lbl">نوع الغلط</label>
+          <div class="field"><label class="lbl">نوع الشات</label>
             <select class="inp" id="q-type">
+              <option value="good">✅ Good Chat</option>
               <option value="critical">Critical</option>
               <option value="noncritical">Non-Critical</option>
               <option value="enduser">End User</option>
@@ -617,8 +618,9 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
         <div class="g2" style="gap:10px">
           <div class="field"><label class="lbl">رقم الشات</label><input class="inp" id="mgr-chat-num" placeholder="رقم أو ID..."/></div>
           <div class="field"><label class="lbl">تاريخ الشات</label><input class="inp" id="mgr-chat-date" type="date"/></div>
-          <div class="field"><label class="lbl">نوع الغلط</label>
+          <div class="field"><label class="lbl">نوع الشات</label>
             <select class="inp" id="mgr-type">
+              <option value="good">✅ Good Chat</option>
               <option value="critical">Critical</option>
               <option value="noncritical">Non-Critical</option>
               <option value="enduser">End User</option>
@@ -2097,27 +2099,42 @@ function saveQuality(){
 }
 function renderQualSummary(){
   const data=DB.quality[selectedQualEmp]||[];
+  const good=data.filter(q=>q.type==='good').length;
   const c=data.filter(q=>q.type==='critical').length;
-  const nc=data.filter(q=>q.type==='noncritical').length;
   const eu=data.filter(q=>q.type==='enduser').length;
+  const nc=data.filter(q=>q.type==='noncritical').length;
   const coached=data.filter(q=>q.coaching==='yes').length;
+  const ncPenalty=Math.floor(nc/4)*10;
+  const score=Math.max(0,100-(c*20)-(eu*20)-ncPenalty);
+  const scoreColor=score===100?'green':score>=80?'teal':score>=60?'amber':'red';
   document.getElementById('qual-summary').innerHTML=`
-    <div class="g4" style="gap:8px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px">
+      <div style="font-size:11px;color:var(--text3)">Quality Score</div>
+      <div style="font-size:28px;font-weight:900;color:var(--${scoreColor})">${score}%</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px">
       <div class="stat"><div class="stat-num" style="color:var(--text)">${data.length}/12</div><div class="stat-lbl">شات</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--red)">${c}</div><div class="stat-lbl">Critical</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--amber)">${nc}</div><div class="stat-lbl">Non-Critical</div></div>
-      <div class="stat"><div class="stat-num" style="color:var(--blue)">${eu}</div><div class="stat-lbl">End User</div></div>
+      <div class="stat" style="border-color:var(--green)"><div class="stat-num" style="color:var(--green)">${good}</div><div class="stat-lbl">Good ✅</div></div>
+      <div class="stat" style="border-color:var(--red)"><div class="stat-num" style="color:var(--red)">${c}</div><div class="stat-lbl">Critical</div></div>
+      <div class="stat" style="border-color:var(--blue)"><div class="stat-num" style="color:var(--blue)">${eu}</div><div class="stat-lbl">End User</div></div>
+      <div class="stat" style="border-color:var(--amber)"><div class="stat-num" style="color:var(--amber)">${nc}</div><div class="stat-lbl">Non-Crit</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);background:var(--bg3);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;line-height:1.8">
+      📌 Critical <span style="color:var(--red)">-20%</span> كل واحدة &nbsp;|&nbsp;
+      End User <span style="color:var(--red)">-20%</span> كل واحدة &nbsp;|&nbsp;
+      Non-Critical كل 4 = <span style="color:var(--amber)">-10%</span>
+      ${ncPenalty>0?`<br>⚠️ Non-Critical penalty: <strong style="color:var(--amber)">-${ncPenalty}%</strong> (${nc} شات = ${Math.floor(nc/4)} مجموعة)`:''}
     </div>
     <div class="pt-item"><span style="font-size:13px">كوتشينج</span><span class="badge badge-green">${coached} شات</span></div>
     <div style="height:8px;background:var(--bg3);border-radius:4px;margin-top:10px;overflow:hidden">
       <div style="height:100%;width:${Math.round(data.length/12*100)}%;background:var(--green);border-radius:4px;transition:width .3s"></div>
     </div>
-    <div style="font-size:11px;color:var(--text3);margin-top:4px">${Math.round(data.length/12*100)}% مكتمل</div>`;
+    <div style="font-size:11px;color:var(--text3);margin-top:4px">${Math.round(data.length/12*100)}% اكتمال الشاتات (${data.length}/12)</div>`;
 }
 function renderQualTable(){
   const data=DB.quality[selectedQualEmp]||[];
-  const typeLabel={'critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
-  const typeBadge={'critical':'badge-red','noncritical':'badge-amber','enduser':'badge-blue'};
+  const typeLabel={'good':'Good Chat ✅','critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
+  const typeBadge={'good':'badge-green','critical':'badge-red','noncritical':'badge-amber','enduser':'badge-blue'};
   document.getElementById('qual-table').innerHTML=data.length?data.map((q,i)=>`
     <tr><td><strong>${i+1}</strong></td><td>${q.chatNum||'—'}</td>
     <td style="font-size:12px;color:var(--text3)">${q.chatDate||'—'}</td>
@@ -2214,8 +2231,8 @@ function renderMgrRecommendation(){
 }
 function renderMgrTable(){
   const data=DB.mgrReview[selectedQualEmp]||[];
-  const typeLabel={'critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
-  const typeBadge={'critical':'badge-red','noncritical':'badge-amber','enduser':'badge-blue'};
+  const typeLabel={'good':'Good Chat ✅','critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
+  const typeBadge={'good':'badge-green','critical':'badge-red','noncritical':'badge-amber','enduser':'badge-blue'};
   document.getElementById('mgr-table').innerHTML=data.length?data.map((q,i)=>`
     <tr><td><strong>${i+1}</strong></td><td>${q.chatNum||'—'}</td>
     <td style="font-size:12px;color:var(--text3)">${q.chatDate||'—'}</td>
@@ -2380,8 +2397,8 @@ window.selectTikoDay=function(ds,el){
   const data=(DB.mgrReview[selectedQualEmp]||[]).filter(q=>q.chatDate===ds);
   const detail=document.getElementById('tiko-cal-day-detail');
   if(!data.length){detail.innerHTML=`<div style="font-size:12px;color:var(--text3);padding:8px 0">مفيش شاتات مراجعة تيكو في ${ds}</div>`;return;}
-  const typeLabel={'critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
-  const typeBadge={'critical':'badge-red','noncritical':'badge-amber','enduser':'badge-blue'};
+  const typeLabel={'good':'Good Chat ✅','critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
+  const typeBadge={'good':'badge-green','critical':'badge-red','noncritical':'badge-amber','enduser':'badge-blue'};
   detail.innerHTML=`<div style="font-size:12px;font-weight:700;color:var(--purple);margin-bottom:8px">📅 ${ds} — ${data.length} شات مراجعة تيكو</div>`+
     data.map(q=>`<div class="mgr-chat-item">
       <div class="mgr-chat-header">
@@ -2405,12 +2422,15 @@ function getKpiWeights(){
 }
 function calcKpi(emp){
   const {wQual,wAtt,wLate,wOrd,targetDays,targetOrders}=getKpiWeights();
-  // Quality
+  // Quality — good chats don't count as errors
+  // Critical → -20% each | End User → -20% each | Non-Critical → -10% per 4
   const qualData=DB.quality[emp]||[];
   const criticals=qualData.filter(q=>q.type==='critical').length;
+  const endUser=qualData.filter(q=>q.type==='enduser').length;
   const nonCrit=qualData.filter(q=>q.type==='noncritical').length;
   const chatsFilled=Math.min(qualData.length,12);
-  let rawQual=Math.max(0,Math.min(100,100-(criticals*10)-(nonCrit*5)));
+  const ncPenalty=Math.floor(nonCrit/4)*10;
+  let rawQual=Math.max(0,Math.min(100,100-(criticals*20)-(endUser*20)-ncPenalty));
   const qualScore=rawQual*wQual;
   // Attendance
   const attData=DB.att[emp]||{};
@@ -2433,7 +2453,7 @@ function calcKpi(emp){
     attPct,attScore:Math.round(attScore),
     latePct:100-latePenalty,lateScore:Math.round(lateScore),
     ordPct,ordScore:Math.round(ordScore),
-    chatsFilled,criticals,nonCrit,lateCount,attDays,totalOrders,
+    chatsFilled,criticals,endUser,nonCrit,ncPenalty,lateCount,attDays,totalOrders,
     wQual,wAtt,wLate,wOrd
   };
 }
@@ -3120,7 +3140,7 @@ function exportData(){
 }
 function doExport(){
   const wb = XLSX.utils.book_new();
-  const typeLabel={'critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
+  const typeLabel={'good':'Good Chat ✅','critical':'Critical','noncritical':'Non-Critical','enduser':'End User'};
   const lateMap={'1':'طردي خروج','2':'طردي دخول','3':'طردي الاتنين','':'لا'};
 
   // ── 1. الحضور ──────────────────────────────────────────────────
@@ -3945,13 +3965,15 @@ window.confirmWrong = function(emp, chat, error){
   _origConfirmWrong.apply(this, arguments);
 };
 
-// Check for 100% quality and play celebration
+// Check for 100% quality and play celebration (only when all 12 filled and no errors)
 function checkQualityScore(emp){
   const data = DB.quality[emp]||[];
   if(data.length < 12) return;
   const c = data.filter(q=>q.type==='critical').length;
+  const eu = data.filter(q=>q.type==='enduser').length;
   const nc = data.filter(q=>q.type==='noncritical').length;
-  const score = Math.max(0, 100 - c*10 - nc*5);
+  const ncPenalty = Math.floor(nc/4)*10;
+  const score = Math.max(0, 100 - c*20 - eu*20 - ncPenalty);
   if(score === 100){
     playCelebration();
     setTimeout(()=>{
@@ -3962,8 +3984,16 @@ function checkQualityScore(emp){
 
 const _origSaveQuality = saveQuality;
 window.saveQuality = function(){
+  // Play sound based on type BEFORE saving
+  const type = document.getElementById('q-type')?.value;
+  if(type === 'good'){
+    playCelebration();
+    setTimeout(()=>showToast('✅ Good Chat! شغل جميل 🎉'), 300);
+  } else if(type === 'critical' || type === 'noncritical' || type === 'enduser'){
+    playLambyError();
+  }
   _origSaveQuality.apply(this, arguments);
-  setTimeout(()=>checkQualityScore(selectedQualEmp), 300);
+  setTimeout(()=>checkQualityScore(selectedQualEmp), 400);
 };
 
 // ===== ⏰ TASK REMINDER SYSTEM =====
