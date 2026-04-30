@@ -3277,7 +3277,7 @@ function renderUsers(){
     const empType = empData.type || '';
     const baseSalary = EMP_TYPE_SALARY[empType] || 0;
     const k = calcKpi(emp);
-    const kpiBonus = baseSalary ? Math.round((k.total / 100) * KPI_BONUS) : 0;
+    const kpiBonus = baseSalary ? k.totalKpiBonus : 0;
     const totalExpected = baseSalary + kpiBonus;
     return `<div class="card" style="${isFemale ? 'border-color:var(--pinkborder)' : 'border-color:var(--purple)'}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
