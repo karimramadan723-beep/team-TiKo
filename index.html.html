@@ -194,7 +194,11 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
 <aside class="sidebar">
   <div class="logo">
     <div class="logo-name" style="font-size:14px;letter-spacing:0">💬 Team WhatsApp</div>
-    <div class="logo-sub" style="color:var(--amber);font-weight:700;font-size:10px;margin-top:3px">⭐ Always The Best</div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap">
+      <div class="logo-sub" style="color:var(--amber);font-weight:700;font-size:10px">⭐ Always The Best</div>
+      <div style="width:1px;height:10px;background:var(--border)"></div>
+      <div style="font-size:10px;font-weight:800;color:var(--purple);letter-spacing:.02em">Karim Ramadan</div>
+    </div>
   </div>
   <nav>
     <div class="nav-group">
@@ -252,7 +256,12 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
     <div class="page-title" id="page-title">الداشبورد</div>
     <div class="page-sub">مايو 2025 — Team WhatsApp</div>
   </div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:1px;margin-right:auto;margin-left:auto">
+    <div style="font-size:13px;font-weight:800;color:var(--purple);letter-spacing:.04em">Karim Ramadan</div>
+    <div style="font-size:10px;font-weight:700;color:var(--amber);letter-spacing:.06em">⭐ ALWAYS THE BEST ⭐</div>
+  </div>
   <div class="topbar-right">
+    <button class="btn btn-ghost btn-sm" id="task-reminder-btn" onclick="openReminderModal()" title="تنبيه التاسكات">⏰ تنبيه التاسك</button>
     <span class="month-badge">مايو 2025</span>
     <button class="btn btn-ghost btn-sm" onclick="exportData()">⬇️ تصدير</button>
   </div>
@@ -393,33 +402,52 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
 
 <!-- ===== TASKS ===== -->
 <div class="page" id="page-tasks">
-  <div class="g2" style="gap:16px;margin-bottom:16px">
-    <div class="card">
-      <div class="card-title"><span class="icon">📋</span>توزيع التاسك اليومي</div>
-      <div class="g2" style="gap:10px;margin-bottom:12px">
-        <div class="field"><label class="lbl">التاريخ</label><input class="inp" id="task-date" type="date" onchange="renderTasks()"/></div>
-        <div class="field"><label class="lbl">من الساعة</label><input class="inp inp-sm" id="task-time-from" type="time" placeholder="مثال: 08:00"/></div>
-        <div class="field"><label class="lbl">لحد الساعة</label><input class="inp inp-sm" id="task-time-to" type="time" placeholder="مثال: 16:00"/></div>
+
+  <!-- TOP: Date + Smart Distribute -->
+  <div class="card" style="margin-bottom:16px;border-color:var(--blue)">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div>
+          <label class="lbl" style="margin-bottom:3px">📅 اليوم</label>
+          <input class="inp" id="task-date" type="date" onchange="renderTasks()" style="width:160px"/>
+        </div>
+        <div>
+          <label class="lbl" style="margin-bottom:3px">🕐 من</label>
+          <input class="inp inp-sm" id="task-time-from" type="time" style="width:110px" oninput="renderTasks()"/>
+        </div>
+        <div>
+          <label class="lbl" style="margin-bottom:3px">🕐 لحد</label>
+          <input class="inp inp-sm" id="task-time-to" type="time" style="width:110px" oninput="renderTasks()"/>
+        </div>
       </div>
-      <div id="tasks-list"></div>
-      <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="saveTasks()">💾 حفظ التوزيع</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="smartDistribute()" style="border-color:var(--amber);color:var(--amber)">⚡ توزيع ذكي</button>
+        <button class="btn btn-primary" onclick="saveTasksNew()">💾 حفظ التوزيع</button>
+        <button class="btn btn-ghost" onclick="sendToAgents()" style="border-color:var(--green);color:var(--green)">📤 Notify Agents</button>
+      </div>
     </div>
-    <div class="card">
-      <div class="card-title"><span class="icon">📊</span>إحصائيات التاسك — الشهر</div>
-      <div id="task-stats"></div>
-    </div>
+    <!-- Schedule hint -->
+    <div id="task-sched-hint" style="margin-top:12px"></div>
   </div>
-  <!-- Employee task detail - show when employee selected from orders -->
-  <div class="card" id="emp-task-detail-card" style="margin-bottom:16px;display:none;border-color:var(--blue)">
-    <div class="card-title"><span class="icon">👤</span>تاسك <span id="emp-task-detail-name" style="color:var(--blue)"></span> اليوم ده</div>
-    <div id="emp-task-detail-content"></div>
-    <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="document.getElementById('emp-task-detail-card').style.display='none'">✕ إغلاق</button>
+
+  <!-- SMART DISTRIBUTION VIEW: بطاقة لكل موظف -->
+  <div id="task-emp-cards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-bottom:16px"></div>
+
+  <!-- SEND RESULT PREVIEW -->
+  <div id="task-send-preview" style="display:none;margin-bottom:16px"></div>
+
+  <!-- STATS -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title"><span class="icon">📊</span>إحصائيات التاسكات — الشهر</div>
+    <div id="task-stats"></div>
   </div>
+
+  <!-- HISTORY TABLE -->
   <div class="card">
     <div class="card-title"><span class="icon">📅</span>سجل التوزيع</div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>التاريخ</th><th>التاسك</th><th>الوقت</th><th>الموظفين</th><th></th></tr></thead>
+        <thead><tr><th>التاريخ</th><th>الموظف</th><th>التاسك</th><th>الوقت</th><th></th></tr></thead>
         <tbody id="task-table"></tbody>
       </table>
     </div>
@@ -827,16 +855,18 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
   <!-- Break coverage -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-title"><span class="icon">☕</span>كفريج البريك — مين هيمسك مكان مين؟</div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">الخانة دي مربوطة بالـ Schedule — بيظهر تلقائياً الموظفين الشغالين في الشيفت في الوقت ده بس ويعرف مين ممكن يكفر</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px">الخانة دي مربوطة بالـ Schedule — بيظهر تلقائياً الموظفين الشغالين وأقل واحد عنده كفريج قبل كده بيتقترح أول</div>
     <div class="g2" style="gap:12px;margin-bottom:12px">
-      <div class="field"><label class="lbl">اليوم</label><input class="inp" id="break-date" type="date" oninput="updateBreakEmpLists()"/></div>
+      <div class="field"><label class="lbl">اليوم</label><input class="inp" id="break-date" type="date" oninput="updateBreakEmpListsAndSuggest()"/></div>
       <div class="field"><label class="lbl">من الساعة (وقت البريك)</label>
-        <input class="inp" id="break-time-from" type="time" placeholder="مثال: 10:00" oninput="updateBreakEmpLists()"/>
+        <input class="inp" id="break-time-from" type="time" placeholder="مثال: 10:00" oninput="updateBreakEmpListsAndSuggest()"/>
       </div>
-      <div class="field"><label class="lbl">الموظف اللي بريك</label>
-        <select class="inp" id="break-emp"></select>
+      <div class="field">
+        <label class="lbl">الموظف اللي بريك</label>
+        <select class="inp" id="break-emp" onchange="autoSuggestCover()"></select>
       </div>
-      <div class="field"><label class="lbl">اللي هيكفر مكانه (من الشغالين في نفس الوقت)</label>
+      <div class="field">
+        <label class="lbl">اللي هيكفر مكانه</label>
         <select class="inp" id="break-cover"></select>
       </div>
       <div class="field"><label class="lbl">مدة البريك (دقايق)</label>
@@ -844,6 +874,8 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
       </div>
     </div>
     <div id="break-available-hint" style="margin-bottom:10px"></div>
+    <!-- Smart suggestion -->
+    <div id="break-smart-suggestion" style="margin-bottom:10px"></div>
     <button class="btn btn-primary btn-sm" onclick="saveBreakCover()">💾 حفظ الكفريج</button>
     <div id="break-cover-list" style="margin-top:14px"></div>
   </div>
@@ -1101,7 +1133,7 @@ function goPage(id,el){
   if(id==='dashboard') renderDashboard();
   if(id==='attendance') renderAttendance();
   if(id==='orders') renderOrders();
-  if(id==='tasks') renderTasks();
+  if(id==='tasks'){empAssignment={};renderTasks();}
   if(id==='dayoff') renderDayOff();
   if(id==='excuse') renderExcuse();
   if(id==='exams') renderExams();
@@ -1567,24 +1599,36 @@ function delOrder(emp,id){
   save(); renderOrders(); showToast('🗑 اتمسح!');
 }
 
-// ===== TASKS =====
-function getEmpWorkingAtTime(dateStr, fromTime, toTime){
-  // Parse task time range to hours
-  const toH = t => { if(!t) return null; const [h,m]=t.split(':').map(Number); return h+m/60; };
-  const taskFrom=toH(fromTime), taskTo=toH(toTime);
-  const shiftHours={
-    '08:00AM-04:00PM':{s:8,e:16},'09:00AM-05:00PM':{s:9,e:17},'10:00AM-06:00PM':{s:10,e:18},'11:00AM-07:00PM':{s:11,e:19},
-    '03:00PM-11:00PM':{s:15,e:23},'04:00PM-12:00AM':{s:16,e:24},'05:00PM-01:00AM':{s:17,e:25},'06:00PM-02:00AM':{s:18,e:26},
-    '07:00PM-03:00AM':{s:19,e:27},'08:00PM-04:00AM':{s:20,e:28}
-  };
-  return EMPLOYEES.filter(emp=>{
+// ===== TASKS (NEW SYSTEM) =====
+// State: empAssignment[emp] = {task, timeFrom, timeTo}
+let empAssignment = {}; // current draft assignment
+
+const SHIFT_HOURS_MAP = {
+  '08:00AM-04:00PM':{s:8,e:16},'09:00AM-05:00PM':{s:9,e:17},
+  '10:00AM-06:00PM':{s:10,e:18},'11:00AM-07:00PM':{s:11,e:19},
+  '03:00PM-11:00PM':{s:15,e:23},'04:00PM-12:00AM':{s:16,e:24},
+  '05:00PM-01:00AM':{s:17,e:25},'06:00PM-02:00AM':{s:18,e:26},
+  '07:00PM-03:00AM':{s:19,e:27},'08:00PM-04:00AM':{s:20,e:28}
+};
+
+function shiftToRange(shiftStr){
+  return SHIFT_HOURS_MAP[shiftStr]||null;
+}
+
+function hhmm(h){
+  // convert float hours (may exceed 24) to HH:MM
+  const real = h % 24;
+  const hh = Math.floor(real);
+  const mm = Math.round((real - hh)*60);
+  return `${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')}`;
+}
+
+function getWorkingEmpsForDate(dateStr){
+  return EMPLOYEES.map(emp=>{
     const shift=getEmpShiftForDay(emp,dateStr);
-    if(!shift||shift==='Off') return false;
-    const sh=shiftHours[shift];
-    if(!sh) return false; // no time filter if shift unknown → include
-    if(taskFrom===null||taskTo===null) return true; // no time specified → show all working
-    // overlap: emp works during [taskFrom, taskTo]
-    return sh.s < taskTo && sh.e > taskFrom;
+    const isOff=shift==='Off';
+    const range=shift&&!isOff?shiftToRange(shift):null;
+    return {emp, shift, isOff, range};
   });
 }
 
@@ -1594,120 +1638,332 @@ function renderTasks(){
   const fromTime=document.getElementById('task-time-from').value;
   const toTime=document.getElementById('task-time-to').value;
 
-  const schedInfo=EMPLOYEES.map(emp=>{
-    const shift=getEmpShiftForDay(emp,dateVal);
-    return {emp,shift,isOff:shift==='Off'};
-  });
-  const working=schedInfo.filter(s=>s.shift&&!s.isOff);
-  const off=schedInfo.filter(s=>s.isOff);
-  const noSched=schedInfo.filter(s=>!s.shift);
+  const empInfo=getWorkingEmpsForDate(dateVal);
+  const working=empInfo.filter(e=>e.shift&&!e.isOff);
+  const off=empInfo.filter(e=>e.isOff);
+  const noSched=empInfo.filter(e=>!e.shift);
 
-  // Employees working during the task time window
-  const workingAtTime = getEmpWorkingAtTime(dateVal, fromTime, toTime);
-
-  let schedHint='';
-  if(working.length||off.length){
-    schedHint=`<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:14px;font-size:12px">
-      <div style="font-weight:700;color:var(--blue);margin-bottom:6px">📅 Schedule — ${dateVal}${fromTime&&toTime?' | 🕐 '+fromTime+' → '+toTime:''}</div>
-      ${working.length?`<div style="color:var(--green);margin-bottom:4px">✅ Working: ${working.map(s=>{const isFem=FEMALE_EMPLOYEES.includes(s.emp);return`<strong style="${isFem?'color:var(--pink)':''}">${shortName(s.emp)}</strong> (${s.shift})`;}).join(' | ')}</div>`:''}
-      ${off.length?`<div style="color:var(--red);margin-bottom:4px">🔴 Off: ${off.map(s=>shortName(s.emp)).join(' | ')}</div>`:''}
-      ${fromTime&&toTime&&workingAtTime.length?`<div style="color:var(--teal);margin-top:4px">⏱ المتاحين في هذا الوقت: <strong>${workingAtTime.map(e=>shortName(e)).join(' | ')}</strong></div>`:''}
-      ${noSched.length?`<div style="color:var(--text3);margin-top:2px">⚪ No schedule: ${noSched.map(s=>shortName(s.emp)).join(' | ')}</div>`:''}
-    </div>`;
+  // Schedule hint
+  const hint=document.getElementById('task-sched-hint');
+  if(hint){
+    const TASK_COLORS={t1:'var(--blue)',t2:'var(--teal)',t3:'var(--green)',t4:'var(--amber)',t5:'var(--red)',t6:'var(--purple)'};
+    hint.innerHTML=`
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        ${working.map(e=>{
+          const isFem=FEMALE_EMPLOYEES.includes(e.emp);
+          const shiftLabel=e.range?`${hhmm(e.range.s)}→${hhmm(e.range.e)}`:(e.shift||'');
+          return `<span style="background:var(--bg3);border:1px solid var(--${isFem?'pinkborder':'border2'});border-radius:8px;padding:4px 10px;font-size:11px;color:var(--${isFem?'pink':'text2'});font-weight:600">${shortName(e.emp)} <span style="color:var(--text3);font-weight:400">${shiftLabel}</span></span>`;
+        }).join('')}
+        ${off.map(e=>`<span class="badge badge-red" style="font-size:10px">${shortName(e.emp)} أوف</span>`).join('')}
+        ${noSched.map(e=>`<span style="font-size:11px;color:var(--text3)">${shortName(e.emp)}?</span>`).join('')}
+      </div>`;
   }
 
-  const list=document.getElementById('tasks-list');
-  list.innerHTML=schedHint+TASKS.map(t=>`
-    <div class="task-item">
-      <div><div class="task-name">${t.name}</div></div>
-      <div class="task-assign">
-        ${EMPLOYEES.map(e=>{
-          const empSched=schedInfo.find(s=>s.emp===e);
-          const isOff=empSched&&empSched.isOff;
-          const isAvailable=workingAtTime.includes(e);
-          const isFemale=FEMALE_EMPLOYEES.includes(e);
-          // Auto-highlight employees available at this time
-          const autoSel=(fromTime&&toTime&&isAvailable&&!isOff);
-          return `<div class="task-emp${isOff?' opacity-50':autoSel?' selected':''}" id="te-${t.id}-${e.replace(/\s/g,'_')}"
-            style="${isOff?'opacity:0.4;text-decoration:line-through':''}${isFemale?';color:var(--pink);border-color:var(--pinkborder)':''}"
-            onclick="toggleTaskEmp('${t.id}','${e}',this)">${shortName(e)}${isOff?' (Off)':''}</div>`;
-        }).join('')}
-      </div>
-    </div>`).join('');
+  renderEmpCards(dateVal, fromTime, toTime, empInfo);
   renderTaskStats();
   renderTaskTable();
 }
-function toggleTaskEmp(tid,emp,el){el.classList.toggle('selected');}
-function saveTasks(){
-  const date=document.getElementById('task-date').value;
+
+function renderEmpCards(dateVal, fromTime, toTime, empInfo){
+  const container=document.getElementById('task-emp-cards');
+  if(!container) return;
+  const working=empInfo.filter(e=>e.shift&&!e.isOff);
+  const TASK_COLORS={t1:'blue',t2:'teal',t3:'green',t4:'amber',t5:'red',t6:'purple'};
+
+  if(!working.length){
+    container.innerHTML=`<div style="color:var(--text3);font-size:13px;grid-column:1/-1;padding:20px 0;text-align:center">مفيش موظفين شغالين النهارده — سجل الـ Schedule الأول</div>`;
+    return;
+  }
+
+  container.innerHTML=working.map(info=>{
+    const {emp,shift,range}=info;
+    const isFem=FEMALE_EMPLOYEES.includes(emp);
+    const assigned=empAssignment[emp];
+    const shiftLabel=range?`${hhmm(range.s)} → ${hhmm(range.e)}`:(shift||'');
+
+    return `<div style="background:var(--bg2);border:2px solid var(--${isFem?'pinkborder':assigned?'blue':'border'});border-radius:var(--r2);padding:14px;transition:border-color .2s">
+      <!-- Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:14px;font-weight:800;color:var(--${isFem?'pink':'text'})">${shortName(emp)}</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">🕐 ${shiftLabel}</div>
+        </div>
+        ${assigned?`<span class="badge badge-${TASK_COLORS[TASKS.find(t=>t.name===assigned.task)?.id]||'blue'}" style="font-size:10px;max-width:90px;text-align:center;white-space:normal;line-height:1.3">${assigned.task}</span>`
+        :`<span style="font-size:11px;color:var(--text3)">بدون تاسك</span>`}
+      </div>
+      <!-- Time range -->
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input type="time" class="inp inp-sm" style="flex:1" value="${assigned?.timeFrom||fromTime||''}" 
+          oninput="setEmpTime('${emp}','from',this.value)" placeholder="من"/>
+        <span style="color:var(--text3);align-self:center;font-size:11px">→</span>
+        <input type="time" class="inp inp-sm" style="flex:1" value="${assigned?.timeTo||toTime||''}" 
+          oninput="setEmpTime('${emp}','to',this.value)" placeholder="لحد"/>
+      </div>
+      <!-- Task picker -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        ${TASKS.map(t=>{
+          const isSelected=assigned&&assigned.task===t.name;
+          return `<div onclick="assignEmpTask('${emp}','${t.name}')"
+            style="padding:5px 8px;border-radius:7px;border:1px solid var(--${isSelected?TASK_COLORS[t.id]:'border'});
+            background:var(--${isSelected?TASK_COLORS[t.id]+'bg':'bg3'});cursor:pointer;font-size:11px;font-weight:600;
+            color:var(--${isSelected?TASK_COLORS[t.id]:'text2'});text-align:center;transition:all .15s;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${t.name}">
+            ${t.name}
+          </div>`;
+        }).join('')}
+        <div onclick="assignEmpTask('${emp}',null)"
+          style="padding:5px 8px;border-radius:7px;border:1px solid var(--${!assigned?'red':'border'});
+          background:var(--${!assigned?'redbg':'bg3'});cursor:pointer;font-size:11px;font-weight:600;
+          color:var(--${!assigned?'red':'text3'});text-align:center;transition:all .15s">
+          ✕ بدون تاسك
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function assignEmpTask(emp, taskName){
+  const dateVal=document.getElementById('task-date').value||todayStr();
+  const from=document.getElementById('task-time-from').value;
+  const to=document.getElementById('task-time-to').value;
+  const empInfo=getWorkingEmpsForDate(dateVal).find(e=>e.emp===emp);
+
+  if(!taskName){
+    delete empAssignment[emp];
+  } else {
+    const existingTime=empAssignment[emp];
+    // Use shift hours if no time specified
+    let tFrom=existingTime?.timeFrom||from;
+    let tTo=existingTime?.timeTo||to;
+    if(!tFrom&&empInfo?.range) tFrom=hhmm(empInfo.range.s);
+    if(!tTo&&empInfo?.range) tTo=hhmm(empInfo.range.e);
+    empAssignment[emp]={task:taskName, timeFrom:tFrom, timeTo:tTo};
+  }
+  // Re-render cards only
+  const empInfo2=getWorkingEmpsForDate(dateVal);
   const fromTime=document.getElementById('task-time-from').value;
   const toTime=document.getElementById('task-time-to').value;
-  TASKS.forEach(t=>{
-    const emps=EMPLOYEES.filter(e=>document.getElementById(`te-${t.id}-${e.replace(/\s/g,'_')}`)?.classList.contains('selected'));
-    if(emps.length){
-      DB.tasks.push({id:Date.now()+Math.random(),date,task:t.name,employees:emps,timeFrom:fromTime,timeTo:toTime});
-    }
-  });
-  save(); renderTasks(); showToast('✅ التوزيع اتحفظ!');
+  renderEmpCards(dateVal, fromTime, toTime, empInfo2);
 }
+
+function setEmpTime(emp, which, val){
+  if(!empAssignment[emp]) empAssignment[emp]={task:null,timeFrom:'',timeTo:''};
+  if(which==='from') empAssignment[emp].timeFrom=val;
+  else empAssignment[emp].timeTo=val;
+}
+
+function saveTasksNew(){
+  const date=document.getElementById('task-date').value;
+  if(!date){showToast('⚠️ حدد التاريخ','amber');return;}
+  let saved=0;
+  Object.entries(empAssignment).forEach(([emp,a])=>{
+    if(!a||!a.task) return;
+    // Remove any existing assignment for same emp+date+task to avoid duplicates
+    DB.tasks=DB.tasks.filter(t=>!(t.date===date&&(t.employees||[]).includes(emp)&&t.task===a.task));
+    DB.tasks.push({
+      id:Date.now()+Math.random(),
+      date, task:a.task,
+      employees:[emp],
+      timeFrom:a.timeFrom||'',
+      timeTo:a.timeTo||'',
+    });
+    saved++;
+  });
+  if(!saved){showToast('⚠️ مفيش توزيع — اختار تاسك لكل موظف','amber');return;}
+  save(); empAssignment={}; renderTasks(); showToast(`✅ تم حفظ ${saved} تاسك!`);
+}
+
+// ⚡ SMART DISTRIBUTE
+// Logic: كل موظف يمسك تاسك واحد طول شيفته — التوزيع حسب قلة التكرار (من مسك أقل يمسك الأكتر احتياجاً)
+function smartDistribute(){
+  const dateVal=document.getElementById('task-date').value||todayStr();
+  const empInfo=getWorkingEmpsForDate(dateVal).filter(e=>e.shift&&!e.isOff);
+  if(!empInfo.length){showToast('⚠️ مفيش موظفين شغالين','amber');return;}
+
+  // Count how many times each emp did each task historically
+  const taskCount={};
+  EMPLOYEES.forEach(e=>{ taskCount[e]={}; TASKS.forEach(t=>{ taskCount[e][t.name]=0; }); });
+  DB.tasks.forEach(t=>{
+    (t.employees||[]).forEach(e=>{
+      if(taskCount[e]&&taskCount[e][t.task]!==undefined) taskCount[e][t.task]++;
+    });
+  });
+
+  // Available tasks (not 'حاضر' unless needed as filler)
+  const primaryTasks=TASKS.filter(t=>t.name!=='حاضر');
+  const allTasks=[...TASKS];
+
+  // Sort emps randomly to avoid always same assignment
+  const shuffled=[...empInfo].sort(()=>Math.random()-0.5);
+
+  const assigned={}; // task -> emp list
+  const empTask={};  // emp -> task
+
+  // Greedy: assign each emp to task they've done least, distributing tasks evenly
+  // Priority: each task should get coverage, spread fairly
+  const taskQueue=[...primaryTasks];
+
+  // First pass: give each primary task at least one emp if possible
+  const taskToEmp={};
+  shuffled.forEach((info,idx)=>{
+    const {emp,range}=info;
+    // Find task emp has done least among unassigned-priority tasks
+    const unassigned=taskQueue.filter(t=>!taskToEmp[t.name]);
+    let bestTask=null;
+    if(unassigned.length){
+      bestTask=unassigned.reduce((best,t)=>{
+        return (taskCount[emp][t.name]||0)<(taskCount[emp][best?.name]||Infinity)?t:best;
+      },unassigned[0]);
+      taskToEmp[bestTask.name]=emp;
+    } else {
+      // All tasks covered, pick least done
+      bestTask=allTasks.reduce((best,t)=>{
+        return (taskCount[emp][t.name]||0)<(taskCount[emp][best?.name]||Infinity)?t:best;
+      },allTasks[0]);
+    }
+    const tFrom=range?hhmm(range.s):'';
+    const tTo=range?hhmm(range.e):'';
+    empTask[emp]={task:bestTask.name, timeFrom:tFrom, timeTo:tTo};
+  });
+
+  empAssignment={...empTask};
+
+  // Re-render
+  const fromTime=document.getElementById('task-time-from').value;
+  const toTime=document.getElementById('task-time-to').value;
+  renderEmpCards(dateVal, fromTime, toTime, empInfo);
+  showToast('⚡ تم التوزيع الذكي — راجع وعدّل لو محتاج');
+}
+
+// 📤 SEND TO AGENTS — generate message for each employee
+function sendToAgents(){
+  const dateVal=document.getElementById('task-date').value||todayStr();
+  const hasAssignment=Object.values(empAssignment).some(a=>a&&a.task);
+
+  // If no draft, use saved tasks for today
+  let source=empAssignment;
+  let usingSaved=false;
+  if(!hasAssignment){
+    // Build from saved DB.tasks for this date
+    source={};
+    (DB.tasks||[]).filter(t=>t.date===dateVal).forEach(t=>{
+      (t.employees||[]).forEach(emp=>{
+        source[emp]={task:t.task,timeFrom:t.timeFrom,timeTo:t.timeTo};
+      });
+    });
+    usingSaved=true;
+  }
+
+  const entries=Object.entries(source).filter(([,a])=>a&&a.task);
+  if(!entries.length){showToast('⚠️ مفيش توزيع — اعمل توزيع ذكي أو حفظ الأول','amber');return;}
+
+  const preview=document.getElementById('task-send-preview');
+  if(!preview) return;
+
+  const lines=entries.map(([emp,a])=>{
+    const timeStr=a.timeFrom&&a.timeTo?` من ${a.timeFrom} لـ ${a.timeTo}`:'';
+    return `👤 *${shortName(emp)}* — ${a.task}${timeStr}`;
+  });
+
+  const fullMsg=`📋 *توزيع التاسكات — ${dateVal}*\n\n${lines.join('\n')}\n\n_Team WhatsApp_ ✅`;
+
+  preview.style.display='block';
+  preview.innerHTML=`<div class="card" style="border-color:var(--green)">
+    <div class="card-title"><span class="icon">📤</span>رسالة جاهزة للإرسال ${usingSaved?'(من المحفوظ)':''}</div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;font-size:13px;font-family:monospace;white-space:pre-wrap;direction:rtl;line-height:1.8;margin-bottom:12px">${fullMsg.replace(/\n/g,'<br>')}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-green btn-sm" onclick="copyTaskMsg()">📋 نسخ الرسالة</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('task-send-preview').style.display='none'">✕ إغلاق</button>
+    </div>
+    <div style="margin-top:12px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px">📱 أرسل لكل موظف بشكل منفرد:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${entries.map(([emp,a])=>{
+          const timeStr=a.timeFrom&&a.timeTo?` من ${a.timeFrom} لـ ${a.timeTo}`:'';
+          const msg=encodeURIComponent(`📋 *تاسكك النهارده — ${dateVal}*\n\n${a.task}${timeStr}\n\nشغل جميل 💪`);
+          const phone=(DB.contacts?.[emp]?.phone||'').replace(/\D/g,'');
+          return phone
+            ?`<a href="https://wa.me/${phone}?text=${msg}" target="_blank" class="btn btn-ghost btn-sm" style="border-color:var(--green);color:var(--green);text-decoration:none">📱 ${shortName(emp)}</a>`
+            :`<span class="btn btn-ghost btn-sm" style="opacity:0.5" title="مفيش رقم لـ ${shortName(emp)}">📵 ${shortName(emp)}</span>`;
+        }).join('')}
+      </div>
+      ${entries.some(([emp])=>!(DB.contacts?.[emp]?.phone))?`<div style="font-size:11px;color:var(--text3);margin-top:8px">💡 أضف أرقام الموظفين في صفحة "بيانات التواصل" عشان تبعت لكل واحد منفرداً</div>`:''}
+    </div>
+  </div>`;
+
+  window._taskMsgFull=fullMsg;
+}
+
+function copyTaskMsg(){
+  if(window._taskMsgFull){
+    navigator.clipboard.writeText(window._taskMsgFull).then(()=>showToast('✅ اتنسخت!'));
+  }
+}
+
+// Smart break cover suggestion
+function suggestBreakCover(empOnBreak, dateStr){
+  const breakEmpInfo=getWorkingEmpsForDate(dateStr).find(e=>e.emp===empOnBreak);
+  if(!breakEmpInfo||!breakEmpInfo.range) return [];
+  const {s,e}=breakEmpInfo.range;
+  // Find employees whose shift overlaps and are not on break themselves
+  return getWorkingEmpsForDate(dateStr)
+    .filter(info=>info.emp!==empOnBreak&&info.shift&&!info.isOff&&info.range)
+    .filter(info=>info.range.s<e&&info.range.e>s) // shift overlaps
+    .sort((a,b)=>{
+      // Prefer who has done least break covering historically
+      const aCount=(DB.breakCover||[]).filter(bc=>bc.cover===a.emp).length;
+      const bCount=(DB.breakCover||[]).filter(bc=>bc.cover===b.emp).length;
+      return aCount-bCount;
+    });
+}
+
 function renderTaskStats(){
   const stats={};
-  TASKS.forEach(t=>stats[t.name]={});
-  EMPLOYEES.forEach(e=>TASKS.forEach(t=>stats[t.name][e]=0));
-  DB.tasks.forEach(t=>(t.employees||[]).forEach(e=>{if(stats[t.task]) stats[t.task][e]=(stats[t.task][e]||0)+1;}));
-  document.getElementById('task-stats').innerHTML=`<div style="overflow-x:auto"><table style="width:100%">
-    <thead><tr><th>التاسك</th>${EMPLOYEES.map(e=>`<th style="font-size:11px">${shortName(e)}</th>`).join('')}</tr></thead>
-    <tbody>${TASKS.map(t=>`<tr><td style="font-size:12px;font-weight:600">${t.name}</td>${EMPLOYEES.map(e=>`<td style="text-align:center"><span class="badge badge-blue">${stats[t.name][e]||0}</span></td>`).join('')}</tr>`).join('')}
-    </tbody></table></div>`;
+  TASKS.forEach(t=>{ stats[t.name]={}; EMPLOYEES.forEach(e=>stats[t.name][e]=0); });
+  DB.tasks.forEach(t=>{
+    (t.employees||[]).forEach(e=>{
+      if(stats[t.task]) stats[t.task][e]=(stats[t.task][e]||0)+1;
+    });
+  });
+  const el=document.getElementById('task-stats');
+  if(!el) return;
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%">
+    <thead><tr>
+      <th>التاسك</th>
+      ${EMPLOYEES.map(e=>`<th style="font-size:11px;text-align:center">${shortName(e)}</th>`).join('')}
+    </tr></thead>
+    <tbody>
+      ${TASKS.map(t=>`<tr>
+        <td style="font-size:12px;font-weight:600">${t.name}</td>
+        ${EMPLOYEES.map(e=>`<td style="text-align:center"><span class="badge badge-blue">${stats[t.name][e]||0}</span></td>`).join('')}
+      </tr>`).join('')}
+    </tbody>
+  </table></div>`;
 }
+
 function renderTaskTable(){
-  const data=[...DB.tasks].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,40);
-  document.getElementById('task-table').innerHTML=data.length?data.map(t=>`
-    <tr><td>${t.date}</td><td>${t.task}</td>
-    <td style="white-space:nowrap;color:var(--blue)">${t.timeFrom&&t.timeTo?t.timeFrom+' → '+t.timeTo:'—'}</td>
-    <td>${(t.employees||[]).map(e=>`<span class="badge badge-blue" style="margin:1px">${shortName(e)}</span>`).join('')}</td>
-    <td style="display:flex;gap:4px">
-      <button class="btn btn-ghost btn-sm" onclick="editTask('${t.id}')" title="تعديل">✏️</button>
-      <button class="btn btn-ghost btn-sm" onclick="delTask('${t.id}')" title="حذف">🗑</button>
-    </td></tr>`).join('')
+  // Group by date+emp for cleaner view
+  const data=[...DB.tasks].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,60);
+  const el=document.getElementById('task-table');
+  if(!el) return;
+  el.innerHTML=data.length?data.map(t=>`
+    <tr>
+      <td style="white-space:nowrap">${t.date}</td>
+      <td>${(t.employees||[]).map(e=>{
+        const isFem=FEMALE_EMPLOYEES.includes(e);
+        return `<span style="font-weight:700;color:var(--${isFem?'pink':'text'})">${shortName(e)}</span>`;
+      }).join(', ')}</td>
+      <td><span class="badge badge-blue">${t.task}</span></td>
+      <td style="white-space:nowrap;color:var(--blue);font-size:12px">${t.timeFrom&&t.timeTo?t.timeFrom+' → '+t.timeTo:'—'}</td>
+      <td style="display:flex;gap:4px">
+        <button class="btn btn-ghost btn-sm" onclick="delTask('${t.id}')">🗑</button>
+      </td>
+    </tr>`).join('')
     :'<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:20px">مفيش بيانات</td></tr>';
 }
 function delTask(id){
   DB.tasks=DB.tasks.filter(t=>String(t.id)!==String(id));
   save(); renderTasks(); showToast('🗑 اتمسح!');
-}
-function editTask(id){
-  const t=DB.tasks.find(x=>String(x.id)===String(id));
-  if(!t) return;
-  const modal=document.getElementById('modal-content');
-  modal.innerHTML=`
-    <div class="modal-title">✏️ تعديل التاسك <span class="modal-close" onclick="closeModal()">✕</span></div>
-    <div class="field"><label class="lbl">التاريخ</label><input class="inp" id="edit-task-date" type="date" value="${t.date||''}"/></div>
-    <div class="field"><label class="lbl">التاسك</label>
-      <select class="inp" id="edit-task-name">
-        ${TASKS.map(tk=>`<option${tk.name===t.task?' selected':''}>${tk.name}</option>`).join('')}
-      </select>
-    </div>
-    <div class="field"><label class="lbl">الموظفين</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">
-        ${EMPLOYEES.map(e=>`<div class="task-emp${(t.employees||[]).includes(e)?' selected':''}" onclick="this.classList.toggle('selected')" data-emp="${e}">${shortName(e)}</div>`).join('')}
-      </div>
-    </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:8px" onclick="saveEditTask('${id}')">💾 حفظ</button>
-  `;
-  document.getElementById('modal-overlay').classList.add('open');
-}
-function saveEditTask(id){
-  const idx=DB.tasks.findIndex(x=>String(x.id)===String(id));
-  if(idx===-1) return;
-  const emps=[...document.querySelectorAll('#modal-content .task-emp.selected')].map(el=>el.dataset.emp);
-  DB.tasks[idx]={
-    ...DB.tasks[idx],
-    date:document.getElementById('edit-task-date').value,
-    task:document.getElementById('edit-task-name').value,
-    employees:emps,
-  };
-  save(); closeModal(); renderTasks(); showToast('✅ اتعدّل!');
 }
 
 // ===== DAY OFF =====
@@ -2663,30 +2919,32 @@ function renderSchedTodayView(){
 }
 
 // ===== BREAK COVERAGE =====
+function updateBreakEmpListsAndSuggest(){
+  updateBreakEmpLists();
+  autoSuggestCover();
+}
+
 function updateBreakEmpLists(){
   const date=document.getElementById('break-date')?.value||todayStr();
   const timeFrom=document.getElementById('break-time-from')?.value||'';
-  const shiftHours={'08:00AM-04:00PM':{s:8,e:16},'09:00AM-05:00PM':{s:9,e:17},'10:00AM-06:00PM':{s:10,e:18},'11:00AM-07:00PM':{s:11,e:19},'03:00PM-11:00PM':{s:15,e:23},'04:00PM-12:00AM':{s:16,e:24},'05:00PM-01:00AM':{s:17,e:25},'06:00PM-02:00AM':{s:18,e:26},'07:00PM-03:00AM':{s:19,e:27},'08:00PM-04:00AM':{s:20,e:28}};
-  
-  // Get employees working at specified time (or all working if no time specified)
+
   let workingEmps=[];
   const toH=t=>{if(!t)return null;const[h,m]=t.split(':').map(Number);return h+m/60;};
   const tH=toH(timeFrom);
-  
+
   EMPLOYEES.forEach(emp=>{
     const shift=getEmpShiftForDay(emp,date);
     if(!shift||shift==='Off') return;
-    const sh=shiftHours[shift];
+    const sh=SHIFT_HOURS_MAP[shift];
     if(!sh) return;
-    if(tH===null){workingEmps.push({emp,shift});return;}
-    // Check if employee is working at this time
-    if(tH>=sh.s && tH<sh.e) workingEmps.push({emp,shift});
+    if(tH===null){workingEmps.push({emp,shift,sh});return;}
+    if(tH>=sh.s && tH<sh.e) workingEmps.push({emp,shift,sh});
   });
-  
+
   const breakEmpSel=document.getElementById('break-emp');
   const coverSel=document.getElementById('break-cover');
   const hint=document.getElementById('break-available-hint');
-  
+
   if(breakEmpSel){
     breakEmpSel.innerHTML=workingEmps.length
       ?workingEmps.map(({emp,shift})=>`<option value="${emp}">${shortName(emp)} (${shift})</option>`).join('')
@@ -2712,6 +2970,48 @@ function updateBreakEmpLists(){
   }
 }
 
+// Auto-suggest best cover person when emp on break is selected
+function autoSuggestCover(){
+  const date=document.getElementById('break-date')?.value||todayStr();
+  const empOnBreak=document.getElementById('break-emp')?.value;
+  const suggEl=document.getElementById('break-smart-suggestion');
+  if(!suggEl||!empOnBreak) return;
+
+  const suggestions=suggestBreakCover(empOnBreak, date);
+  if(!suggestions.length){
+    suggEl.innerHTML=`<div style="font-size:12px;color:var(--text3)">مفيش موظفين متاحين لكفريج البريك</div>`;
+    return;
+  }
+
+  // Auto-select best suggestion in dropdown
+  const coverSel=document.getElementById('break-cover');
+  if(coverSel){
+    for(let i=0;i<coverSel.options.length;i++){
+      if(coverSel.options[i].value===suggestions[0].emp){
+        coverSel.selectedIndex=i; break;
+      }
+    }
+  }
+
+  suggEl.innerHTML=`<div style="background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--r);padding:10px 12px">
+    <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:6px">💡 اقتراح ذكي للكفريج</div>
+    <div style="display:flex;flex-wrap:wrap;gap:5px">
+      ${suggestions.slice(0,4).map((info,i)=>{
+        const coverCount=(DB.breakCover||[]).filter(bc=>bc.cover===info.emp).length;
+        const isFem=FEMALE_EMPLOYEES.includes(info.emp);
+        const shiftR=info.range?`${hhmm(info.range.s)}→${hhmm(info.range.e)}`:info.shift;
+        return `<div onclick="document.getElementById('break-cover').value='${info.emp}';document.getElementById('break-smart-suggestion').querySelector('[data-best]')&&(document.getElementById('break-smart-suggestion').querySelector('[data-best]').style.display='none')"
+          style="background:var(--${i===0?'greenbg':'bg3'});border:1px solid var(--${i===0?'green':'border'});border-radius:8px;padding:6px 10px;cursor:pointer;transition:all .15s"
+          title="اضغط لاختياره">
+          <div style="font-size:12px;font-weight:700;color:var(--${isFem?'pink':i===0?'green':'text'})">${i===0?'⭐ ':''} ${shortName(info.emp)}</div>
+          <div style="font-size:10px;color:var(--text3)">${shiftR}</div>
+          <div style="font-size:10px;color:var(--text3)">كفر قبل كده: ${coverCount}×</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
 function saveBreakCover(){
   const date=document.getElementById('break-date').value;
   const emp=document.getElementById('break-emp').value;
@@ -2724,6 +3024,9 @@ function saveBreakCover(){
   if(!DB.breakCover) DB.breakCover=[];
   DB.breakCover.push({id:Date.now(),date,emp,cover,duration,timeFrom});
   save(); renderBreakCoverList(); renderSchedTodayView(); showToast('✅ كفريج اتحفظ!');
+  // Clear suggestion
+  const suggEl=document.getElementById('break-smart-suggestion');
+  if(suggEl) suggEl.innerHTML='';
 }
 function renderBreakCoverList(){
   const el=document.getElementById('break-cover-list');
@@ -2786,7 +3089,7 @@ function renderShiftStats(){
 function renderSchedule(){
   selectSchedWeek(currentSchedWeek);
   renderBreakCoverList();
-  const bd=document.getElementById('break-date'); if(bd) bd.value=todayStr();
+  const bd=document.getElementById('break-date'); if(bd){bd.value=todayStr(); updateBreakEmpListsAndSuggest();}
   const td=document.getElementById('timeline-date'); if(td){td.value=todayStr();renderShiftTimeline(todayStr());}
 }
 
@@ -3545,11 +3848,323 @@ function saveEditPassword(id){
   save(); closeModal(); renderPasswords(); showToast('✅ اتعدّل!');
 }
 
-function delPassword(id){
-  if(!confirm('مسح الباسورد ده؟')) return;
-  DB.passwords=(DB.passwords||[]).filter(x=>x.id!==id);
-  save(); renderPasswords(); showToast('🗑 اتمسح!');
+// ===== 🔊 SOUND ENGINE (Web Audio API) =====
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let _audioCtx = null;
+function getAudioCtx(){
+  if(!_audioCtx) _audioCtx = new AudioCtx();
+  if(_audioCtx.state === 'suspended') _audioCtx.resume();
+  return _audioCtx;
 }
+
+// Generic beep helper
+function playBeep(freq=440, dur=0.15, type='sine', vol=0.4, delay=0){
+  try{
+    const ctx = getAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+    gain.gain.setValueAtTime(vol, ctx.currentTime + delay);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+    osc.start(ctx.currentTime + delay);
+    osc.stop(ctx.currentTime + delay + dur + 0.05);
+  }catch(e){}
+}
+
+// 🎭 اللمبي — صوت غلطة فلور (كوميدي ساخر)
+function playLambyError(){
+  // Descending wobbly tones — "اييييه!!"
+  const ctx = getAudioCtx();
+  const freqs = [600, 520, 440, 380, 300, 250];
+  freqs.forEach((f,i)=>{
+    playBeep(f, 0.18, 'sawtooth', 0.3, i*0.12);
+  });
+  // Low fart-style rumble at the end
+  setTimeout(()=>{
+    playBeep(80, 0.4, 'sawtooth', 0.5);
+    playBeep(100, 0.3, 'square', 0.3, 0.1);
+  }, freqs.length * 120 + 80);
+}
+
+// 🎵 اللمبي — صوت تاني كوميدي للـ penalty
+function playLambyPenalty(){
+  // "اريبو!" ascending then crashing
+  [200,250,300,350,280,200,150,100].forEach((f,i)=>{
+    playBeep(f, 0.12, i<4?'triangle':'sawtooth', i<4?0.35:0.5, i*0.1);
+  });
+}
+
+// 🏆 صوت احتفال لما حد يجيب 100% في الكوليتي
+function playCelebration(){
+  const ctx = getAudioCtx();
+  // Fanfare — ascending triumphant
+  const notes = [
+    {f:523,d:0.1,t:0},   // C5
+    {f:659,d:0.1,t:0.12}, // E5
+    {f:784,d:0.1,t:0.24}, // G5
+    {f:1047,d:0.3,t:0.36},// C6
+    {f:784,d:0.08,t:0.7}, // G5
+    {f:1047,d:0.4,t:0.82},// C6 long
+  ];
+  notes.forEach(n=>{
+    playBeep(n.f, n.d, 'triangle', 0.45, n.t);
+    playBeep(n.f*1.5, n.d*0.8, 'sine', 0.15, n.t+0.02); // harmony
+  });
+  // Sparkle effect
+  [1200,1400,1600,1800,2000].forEach((f,i)=>{
+    playBeep(f, 0.06, 'sine', 0.2, 1.3+i*0.07);
+  });
+}
+
+// ⏰ صوت تنبيه التاسكات
+function playReminderSound(){
+  // Three ascending pings
+  [700, 900, 1100].forEach((f,i)=>{
+    playBeep(f, 0.2, 'triangle', 0.5, i * 0.25);
+  });
+  setTimeout(()=>{
+    [700, 900, 1100].forEach((f,i)=>{
+      playBeep(f, 0.2, 'triangle', 0.5, i * 0.25);
+    });
+  }, 900);
+}
+
+// Trigger Lamby sound on floor save
+const _origSaveFloor = saveFloor;
+window.saveFloor = function(){
+  // Sound before saving
+  playLambyError();
+  _origSaveFloor.apply(this, arguments);
+};
+
+const _origConfirmWrong = confirmWrong;
+window.confirmWrong = function(emp, chat, error){
+  playLambyPenalty();
+  _origConfirmWrong.apply(this, arguments);
+};
+
+// Check for 100% quality and play celebration
+function checkQualityScore(emp){
+  const data = DB.quality[emp]||[];
+  if(data.length < 12) return;
+  const c = data.filter(q=>q.type==='critical').length;
+  const nc = data.filter(q=>q.type==='noncritical').length;
+  const score = Math.max(0, 100 - c*10 - nc*5);
+  if(score === 100){
+    playCelebration();
+    setTimeout(()=>{
+      showToast('🏆 100% Quality! عظيم يا بطل!');
+    }, 400);
+  }
+}
+
+const _origSaveQuality = saveQuality;
+window.saveQuality = function(){
+  _origSaveQuality.apply(this, arguments);
+  setTimeout(()=>checkQualityScore(selectedQualEmp), 300);
+};
+
+// ===== ⏰ TASK REMINDER SYSTEM =====
+let reminderTimer = null;
+let reminderRepeatTimer = null;
+let reminderActive = false;
+let reminderSent = false;
+
+function openReminderModal(){
+  const modal = document.getElementById('modal-content');
+  const saved = JSON.parse(localStorage.getItem('taskReminderSettings')||'{}');
+  const now = new Date();
+  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  modal.innerHTML = `
+    <div class="modal-title">⏰ تنبيه التاسكات <span class="modal-close" onclick="closeModal()">✕</span></div>
+    <div style="background:var(--bluebg);border:1px solid var(--blue);border-radius:var(--r);padding:10px 14px;margin-bottom:16px;font-size:12px;color:var(--blue)">
+      📋 هيفكرك إنك تبعت التاسكات — لو نسيت ترد، هيرجع يذكرك كل ساعة
+    </div>
+    <div class="field">
+      <label class="lbl">🕐 وقت التنبيه</label>
+      <input class="inp" id="reminder-time" type="time" value="${saved.time||hhmm}"/>
+    </div>
+    <div class="field">
+      <label class="lbl">📅 التاريخ (اتركه فاضي = كل يوم)</label>
+      <input class="inp" id="reminder-date" type="date" value="${saved.date||''}"/>
+    </div>
+    <div id="reminder-status-box" style="margin-bottom:12px"></div>
+    ${reminderActive?`
+    <div style="background:var(--amberbg);border:1px solid var(--amber);border-radius:var(--r);padding:8px 12px;margin-bottom:12px;font-size:12px;color:var(--amber)">
+      ⏳ في تنبيه شغال دلوقتي — بيرجع كل ساعة لحد ما تضغط "تم البعت"
+    </div>
+    <button class="btn btn-green btn-sm" style="width:100%;margin-bottom:8px" onclick="markReminderSent()">✅ تم البعت — وقف التنبيه</button>`:''}
+    <button class="btn btn-primary" style="width:100%;margin-bottom:8px" onclick="setReminder()">⏰ تفعيل التنبيه</button>
+    <button class="btn btn-ghost btn-sm" style="width:100%" onclick="cancelReminder()">❌ إلغاء التنبيه</button>
+  `;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function setReminder(){
+  const time = document.getElementById('reminder-time').value;
+  const date = document.getElementById('reminder-date').value;
+  if(!time){showToast('⚠️ اختار وقت التنبيه','amber');return;}
+  localStorage.setItem('taskReminderSettings', JSON.stringify({time, date}));
+  cancelReminder(); // clear any old
+  scheduleReminder(time, date);
+  closeModal();
+  showToast('✅ التنبيه اتفعّل!');
+}
+
+function scheduleReminder(time, date){
+  const now = new Date();
+  const [h,m] = time.split(':').map(Number);
+  let target = new Date();
+  target.setHours(h, m, 0, 0);
+
+  // If target date specified, use it
+  if(date){
+    const [y,mo,d] = date.split('-').map(Number);
+    target = new Date(y, mo-1, d, h, m, 0);
+  }
+
+  // If time already passed today, schedule for tomorrow (if no specific date)
+  if(!date && target <= now){
+    target.setDate(target.getDate()+1);
+  }
+
+  const msUntil = target - now;
+  if(msUntil < 0 && date){
+    showToast('⚠️ الوقت ده فات — اختار وقت تاني','amber');
+    return;
+  }
+
+  reminderTimer = setTimeout(()=>{
+    fireReminder(time, date);
+  }, Math.max(0, msUntil));
+
+  reminderActive = false;
+  reminderSent = false;
+  updateReminderBtn();
+}
+
+function fireReminder(time, date){
+  reminderActive = true;
+  reminderSent = false;
+  updateReminderBtn();
+
+  // Play sound + show notification
+  playReminderSound();
+  showReminderBanner();
+
+  // Try browser notification
+  if(Notification && Notification.permission === 'granted'){
+    new Notification('⏰ Team WhatsApp — تنبيه التاسكات', {
+      body: '⚠️ هتبعت التاسكات؟ دوس تم البعت لما تخلص',
+      icon: ''
+    });
+  } else if(Notification && Notification.permission !== 'denied'){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted') new Notification('⏰ تنبيه التاسكات', {body:'بعت التاسكات؟'});
+    });
+  }
+
+  // Repeat every hour until marked sent
+  reminderRepeatTimer = setInterval(()=>{
+    if(!reminderSent){
+      playReminderSound();
+      showReminderBanner();
+    } else {
+      clearInterval(reminderRepeatTimer);
+    }
+  }, 60 * 60 * 1000); // 1 hour
+}
+
+function showReminderBanner(){
+  // Remove old banner
+  const old = document.getElementById('reminder-floating-banner');
+  if(old) old.remove();
+
+  const banner = document.createElement('div');
+  banner.id = 'reminder-floating-banner';
+  banner.style.cssText = `
+    position:fixed;top:80px;left:50%;transform:translateX(-50%);
+    background:var(--amberbg);border:2px solid var(--amber);border-radius:14px;
+    padding:14px 22px;z-index:9999;font-family:'Cairo',sans-serif;
+    display:flex;align-items:center;gap:14px;box-shadow:0 8px 32px rgba(0,0,0,.5);
+    animation:slideDown .4s ease;min-width:320px;max-width:92vw;
+  `;
+  banner.innerHTML = `
+    <span style="font-size:28px">⏰</span>
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:800;color:var(--amber)">تنبيه — بعتّ التاسكات؟</div>
+      <div style="font-size:11px;color:var(--text2);margin-top:2px">هيرجع يذكرك كل ساعة لحد ما تضغط تم</div>
+    </div>
+    <button onclick="markReminderSent()" style="background:var(--green);color:#000;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;font-family:'Cairo',sans-serif;cursor:pointer">✅ تم</button>
+    <button onclick="document.getElementById('reminder-floating-banner').remove()" style="background:var(--bg4);color:var(--text2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;cursor:pointer">×</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function markReminderSent(){
+  reminderSent = true;
+  reminderActive = false;
+  clearInterval(reminderRepeatTimer);
+  clearTimeout(reminderTimer);
+  const banner = document.getElementById('reminder-floating-banner');
+  if(banner) banner.remove();
+  updateReminderBtn();
+  closeModal();
+  showToast('✅ تمام — التنبيه اتوقف!');
+}
+
+function cancelReminder(){
+  clearTimeout(reminderTimer);
+  clearInterval(reminderRepeatTimer);
+  reminderActive = false;
+  reminderSent = false;
+  const banner = document.getElementById('reminder-floating-banner');
+  if(banner) banner.remove();
+  updateReminderBtn();
+}
+
+function updateReminderBtn(){
+  const btn = document.getElementById('task-reminder-btn');
+  if(!btn) return;
+  if(reminderActive){
+    btn.style.background = 'var(--amberbg)';
+    btn.style.borderColor = 'var(--amber)';
+    btn.style.color = 'var(--amber)';
+    btn.textContent = '🔔 تنبيه شغال';
+  } else {
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    btn.textContent = '⏰ تنبيه التاسك';
+  }
+}
+
+// Request notification permission on load
+if(Notification && Notification.permission === 'default'){
+  setTimeout(()=>Notification.requestPermission(), 3000);
+}
+
+// Restore reminder on page load
+(function restoreReminder(){
+  const saved = JSON.parse(localStorage.getItem('taskReminderSettings')||'{}');
+  if(saved.time){
+    scheduleReminder(saved.time, saved.date||'');
+  }
+})();
+
+// CSS animation for banner
+(function addBannerStyle(){
+  const s = document.createElement('style');
+  s.textContent = `
+    @keyframes slideDown {
+      from { transform: translateX(-50%) translateY(-30px); opacity: 0; }
+      to   { transform: translateX(-50%) translateY(0);    opacity: 1; }
+    }
+  `;
+  document.head.appendChild(s);
+})();
 </script>
 </body>
 </html>
