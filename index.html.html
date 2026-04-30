@@ -718,7 +718,7 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
       <span style="font-size:20px">🏆</span>
       <div>
         <div style="font-size:14px;font-weight:700;color:var(--amber)">KPI الشهري — حساب تلقائي</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:2px">النسب: 50% كوليتي | 25% أوردرات | 15% لوجين | 10% طردي — بونص KPI: 500 EGP</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">النسب: 50% كوليتي | 25% أوردرات | 15% توتال لوجين | 10% طردي — بونص KPI: 500 EGP</div>
       </div>
     </div>
   </div>
@@ -726,13 +726,24 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
   <!-- KPI SETTINGS -->
   <div class="card" style="margin-bottom:16px">
     <div class="card-title"><span class="icon">⚙️</span>KPI Settings — Weights & Targets</div>
+    <!-- KPI Structure visual -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;font-size:12px;line-height:2">
+      <div style="font-weight:800;color:var(--amber);margin-bottom:4px">💰 بونص KPI = 500 EGP | يتحسب كالآتي:</div>
+      <div>🎧 <strong style="color:var(--blue)">50%</strong> = كوليتي</div>
+      <div>📦 <strong style="color:var(--teal)">25%</strong> = توتال أوردرات الشهر</div>
+      <div>🕐 <strong style="color:var(--green)">15%</strong> = توتال لوجين (Target: 200 ساعة)</div>
+      <div>⏱ <strong style="color:var(--red)">10%</strong> = طردي (مش تتجاوز 30 دقيقة شهري / 10 دقيقة يومي)</div>
+    </div>
     <div class="g3" style="gap:12px;margin-bottom:12px">
       <div class="field"><label class="lbl">Quality Weight % 🎧</label><input class="inp" id="kpi-w-qual" type="number" value="50" min="0" max="100"/></div>
       <div class="field"><label class="lbl">Total Login % 🕐</label><input class="inp" id="kpi-w-att" type="number" value="15" min="0" max="100"/></div>
       <div class="field"><label class="lbl">Tardiness Weight % ⏱</label><input class="inp" id="kpi-w-late" type="number" value="10" min="0" max="100"/></div>
       <div class="field"><label class="lbl">Orders Weight % 📦</label><input class="inp" id="kpi-w-ord" type="number" value="25" min="0" max="100"/></div>
-      <div class="field"><label class="lbl">Required Work Days</label><input class="inp" id="kpi-target-days" type="number" value="26"/></div>
-      <div class="field"><label class="lbl">Total Orders Target</label><input class="inp" id="kpi-target-orders" type="number" value="500"/></div>
+      <div class="field"><label class="lbl">Target Login Hours (ساعة)</label><input class="inp" id="kpi-target-days" type="number" value="200"/></div>
+      <div class="field"><label class="lbl">Total Orders Target 📦</label><input class="inp" id="kpi-target-orders" type="number" value="500"/></div>
+    </div>
+    <div style="background:var(--redbg);border:1px solid var(--red);border-radius:var(--r);padding:10px 14px;margin-bottom:8px;font-size:12px;color:var(--red)">
+      <strong>⏱ قاعدة الطردي:</strong> مش يتجاوز <strong>10 دقائق في اليوم</strong> و<strong>30 دقيقة في الشهر</strong> — أي تجاوز بينقص من الـ 10%
     </div>
     <div style="background:var(--redbg);border:1px solid var(--red);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:12px;color:var(--red)">
       <strong>📌 Points Rule:</strong> Every <strong>1 Point</strong> (floor error) = <strong>automatic deduction of 20 EGP</strong> from net salary.
@@ -799,7 +810,9 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
             <th id="kpi-th-ord">Orders</th>
             <th>KPI%</th>
             <th>Full Salary</th>
-            <th>KPI Deduction</th>
+            <th style="color:var(--amber)">KPI Bonus</th>
+            <th style="color:var(--red)">إجمالي الخصومات</th>
+            <th style="color:var(--green)">Net Salary 💰</th>
             <th>Points Ded.</th>
             <th style="color:var(--green)">Overtime +</th>
             <th>Net</th>
@@ -1317,7 +1330,7 @@ function renderDashboard(){
   const todayTasks=DB.tasks.filter(t=>t.date===todayStr());
   const dt=document.getElementById('dash-tasks-today');
   if(!todayTasks.length){dt.innerHTML=`<div style="color:var(--text3);font-size:13px;padding:10px 0">مفيش توزيع تاسك النهارده</div>`;}
-  else dt.innerHTML=todayTasks.map(t=>`<div class="pt-item"><span style="font-size:13px;font-weight:600">${t.task}</span><div style="display:flex;gap:4px;flex-wrap:wrap">${(t.employees||[]).map(e=>{const sh=getEmpShiftForDay(e,todayStr());return`<span class="badge badge-blue">${e.split(' ')[0]}${sh&&sh!=='أوف'?' ('+sh+')':sh==='أوف'?' 🔴':''}</span>`;}).join('')}</div></div>`).join('');
+  else dt.innerHTML=todayTasks.map(t=>`<div class="pt-item"><span style="font-size:13px;font-weight:600">${t.task}</span><div style="display:flex;gap:4px;flex-wrap:wrap">${(t.employees||[]).map(e=>{const sh=getEmpShiftForDay(e,todayStr());return`<span class="badge badge-blue">${e.split(' ')[0]}${sh&&sh!=='Off'?' ('+sh+')':sh==='Off'?' 🔴':''}</span>`;}).join('')}</div></div>`).join('');
 
   // --- Floor recent ---
   const flr=document.getElementById('dash-floor-recent');
@@ -2422,8 +2435,9 @@ function getKpiWeights(){
 }
 function calcKpi(emp){
   const {wQual,wAtt,wLate,wOrd,targetDays,targetOrders}=getKpiWeights();
-  // Quality — good chats don't count as errors
-  // Critical → -20% each | End User → -20% each | Non-Critical → -10% per 4
+  const targetHours=targetDays; // kpi-target-days field now = 200 login hours
+
+  // ── Quality (50%) ──────────────────────────────────────────────
   const qualData=DB.quality[emp]||[];
   const criticals=qualData.filter(q=>q.type==='critical').length;
   const endUser=qualData.filter(q=>q.type==='enduser').length;
@@ -2432,26 +2446,33 @@ function calcKpi(emp){
   const ncPenalty=Math.floor(nonCrit/4)*10;
   let rawQual=Math.max(0,Math.min(100,100-(criticals*20)-(endUser*20)-ncPenalty));
   const qualScore=rawQual*wQual;
-  // Attendance
+
+  // ── Total Login Hours (15%) ─────────────────────────────────────
   const attData=DB.att[emp]||{};
   const attDays=Object.keys(attData).length;
-  const attPct=Math.min(100,Math.round(attDays/targetDays*100));
+  const totalLoginHours=Object.values(attData).reduce((s,a)=>s+Number(a.loginHours||a.login_hours||8),0);
+  const attPct=Math.min(100,Math.round(totalLoginHours/targetHours*100));
   const attScore=attPct*wAtt;
-  // Tardiness
+
+  // ── Tardiness (10%) ─────────────────────────────────────────────
+  // Max 10 min/day & 30 min/month — 0–30 min maps to 100–0%
+  const totalLateMinutes=Object.values(attData).reduce((s,a)=>s+Number(a.lateMinutes||a.late_minutes||0),0);
   const lateCount=Object.values(attData).filter(a=>a.late&&a.late!=='').length;
-  const latePenalty=Math.min(100,lateCount*10);
+  const latePenalty=Math.min(100,totalLateMinutes>0?Math.round((totalLateMinutes/30)*100):lateCount*10);
   const lateScore=(100-latePenalty)*wLate;
-  // Orders — flatten correctly
+
+  // ── Orders (25%) ───────────────────────────────────────────────
   const ordArr=Array.isArray(DB.orders[emp])?DB.orders[emp]:Object.values(DB.orders[emp]||{});
   const totalOrders=ordArr.reduce((s,o)=>s+Number(o.count||0),0);
   const ordPct=Math.min(100,Math.round(totalOrders/targetOrders*100));
   const ordScore=ordPct*wOrd;
+
   const total=Math.min(100,Math.round(qualScore+attScore+lateScore+ordScore));
   return {
     total,
     rawQual,qualScore:Math.round(qualScore),
-    attPct,attScore:Math.round(attScore),
-    latePct:100-latePenalty,lateScore:Math.round(lateScore),
+    attPct,attScore:Math.round(attScore),totalLoginHours,
+    latePct:100-latePenalty,lateScore:Math.round(lateScore),totalLateMinutes,
     ordPct,ordScore:Math.round(ordScore),
     chatsFilled,criticals,endUser,nonCrit,ncPenalty,lateCount,attDays,totalOrders,
     wQual,wAtt,wLate,wOrd
@@ -2586,20 +2607,12 @@ function renderKpi(){
 
   kpiGrid.innerHTML=EMPLOYEES.map(emp=>{
     const k=calcKpi(emp);
+    const ns=calcNetSalary(emp);
     const salary=Number(DB.contacts[emp]?.salary||0);
     const daily=Number(DB.contacts[emp]?.daily||(salary?Math.round(salary/26):0));
-    // Floor points deduction
+    // Floor points display only
     const floorData=(DB.floor||[]).filter(f=>f.emp===emp);
     const totalFloorPts=floorData.filter(f=>f.points==='1').length*1+floorData.filter(f=>f.points==='2').length*2;
-    const ptsDed=totalFloorPts*20;
-    const kpiDeduction=salary?Math.round(salary*(1-k.total/100)):null;
-    const otHours=Number(DB.contacts[emp]?.otHours||0);
-    const otRate=Number(DB.otRate||0);
-    const otAmount=otHours&&otRate?otHours*otRate:0;
-    // KPI bonus from users page
-    const empType=DB.users?.[emp]?.type||'';
-    const kpiBonus=empType?Math.round(k.total/100*KPI_BONUS):0;
-    const net=salary?Math.round(salary*k.total/100)-ptsDed+otAmount+kpiBonus:null;
     const color=k.total>=80?'green':k.total>=60?'amber':'red';
     return `<div class="card" style="border-color:var(--${color})">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -2608,44 +2621,69 @@ function renderKpi(){
       </div>
       <div class="g2" style="gap:8px">
         <div class="stat"><div class="stat-num" style="color:var(--blue)">${k.rawQual}%</div><div class="stat-lbl">Quality</div></div>
-        <div class="stat"><div class="stat-num" style="color:var(--green)">${k.attPct}%</div><div class="stat-lbl">Login %</div></div>
-        <div class="stat"><div class="stat-num" style="color:var(--amber)">${k.latePct}%</div><div class="stat-lbl">Tardiness</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--green)">${k.totalLoginHours}h</div><div class="stat-lbl">Login hrs</div></div>
+        <div class="stat"><div class="stat-num" style="color:var(--amber)">${k.totalLateMinutes}m</div><div class="stat-lbl">Late min</div></div>
         <div class="stat"><div class="stat-num" style="color:var(--teal)">${k.ordPct}%</div><div class="stat-lbl">Orders</div></div>
       </div>
-      ${daily?`<div style="margin-top:8px;padding:8px;background:var(--bg4);border-radius:8px;font-size:11px;color:var(--text2)">
-        Half-day: <strong>${Math.round(daily/2)} EGP</strong> &nbsp;|&nbsp; 1.5hr: <strong>${Math.round(daily*1.5/8)} EGP</strong>
-      </div>`:''}
-      ${salary?`<div style="margin-top:10px;padding:8px;background:var(--bg4);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
-        <div><div style="font-size:11px;color:var(--text3)">Full Salary</div><div style="font-size:13px;font-weight:700">${salary.toLocaleString()} EGP</div></div>
-        <div><div style="font-size:11px;color:var(--red)">KPI Deduction</div><div style="font-size:13px;font-weight:700;color:var(--red)">${kpiDeduction.toLocaleString()} EGP</div></div>
-        <div><div style="font-size:11px;color:var(--red)">Points Ded.</div><div style="font-size:13px;font-weight:700;color:var(--red)">${ptsDed>0?'-'+ptsDed:0} EGP</div></div>
-        ${otAmount>0?`<div><div style="font-size:11px;color:var(--green)">Overtime +</div><div style="font-size:13px;font-weight:700;color:var(--green)">+${otAmount.toLocaleString()} EGP</div></div>`:''}
-        ${kpiBonus>0?`<div><div style="font-size:11px;color:var(--amber)">KPI Bonus +</div><div style="font-size:13px;font-weight:700;color:var(--amber)">+${kpiBonus.toLocaleString()} EGP</div></div>`:''}
-        <div><div style="font-size:11px;color:var(--green)">Net</div><div style="font-size:15px;font-weight:800;color:var(--green)">${net.toLocaleString()} EGP</div></div>
-      </div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Salary not entered yet</div>'}
+      ${ns?`<div style="margin-top:10px;background:var(--bg4);border-radius:8px;overflow:hidden">
+        <!-- Additions -->
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border2)">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">الراتب</div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text2)">الأساسي ${ns.base===5700?'(خريج)':'(طالب)'}</span>
+            <span style="font-weight:700">${ns.base.toLocaleString()} EGP</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px">
+            <span style="color:var(--amber)">+ بونص KPI (${ns.kpiPct}%)</span>
+            <span style="font-weight:700;color:var(--amber)">+${ns.kpiBonus} EGP</span>
+          </div>
+        </div>
+        <!-- Deductions -->
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border2)">
+          <div style="font-size:10px;font-weight:700;color:var(--red);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">الخصومات من الـ Net</div>
+          ${ns.ublDays>0?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text2)">UBL (${ns.ublDays} يوم × ${ns.daily} EGP)</span>
+            <span style="color:var(--red);font-weight:600">-${(ns.ublDays*ns.daily).toLocaleString()} EGP</span>
+          </div>`:''}
+          ${ns.absDays>0?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text2)">ABSENT (${ns.absDays} يوم × ${ns.daily*2} EGP)</span>
+            <span style="color:var(--red);font-weight:600">-${(ns.absDays*ns.daily*2).toLocaleString()} EGP</span>
+          </div>`:''}
+          ${ns.pts2>0?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text2)">2-Point (${ns.pts2} × 40 EGP)</span>
+            <span style="color:var(--red);font-weight:600">-${(ns.pts2*40).toLocaleString()} EGP</span>
+          </div>`:''}
+          ${ns.pts1>0?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text2)">1-Point (${ns.pts1} × 20 EGP)</span>
+            <span style="color:var(--red);font-weight:600">-${(ns.pts1*20).toLocaleString()} EGP</span>
+          </div>`:''}
+          ${ns.wrongCount>0?`<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
+            <span style="color:var(--text2)">Wrong ❌ (${ns.wrongCount})</span>
+            <span style="color:var(--red);font-weight:600">-${ns.wrongDed.toLocaleString()} EGP</span>
+          </div>`:''}
+          ${ns.totalDeductions===0?`<div style="font-size:11px;color:var(--green)">✅ مفيش خصومات</div>`:''}
+        </div>
+        <!-- Net -->
+        <div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:12px;font-weight:700;color:var(--text2)">💰 Net Salary</span>
+          <span style="font-size:18px;font-weight:800;color:var(--green)">${ns.net.toLocaleString()} EGP</span>
+        </div>
+      </div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center;padding:8px">حدد نوع الموظف (طالب/خريج) من صفحة اليوزرات</div>'}
       <div style="height:8px;background:var(--bg4);border-radius:4px;margin-top:10px;overflow:hidden">
         <div style="height:100%;width:${k.total}%;background:var(--${color});border-radius:4px;transition:width .4s"></div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:5px">${k.chatsFilled}/12 chats · ${k.attDays} days · ${k.lateCount} tardiness · ${k.totalOrders} orders · ${totalFloorPts} pts</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px">${k.chatsFilled}/12 chats · ${k.totalLoginHours}h login · ${k.totalLateMinutes}m late · ${k.totalOrders} orders · ${totalFloorPts} pts</div>
     </div>`;
   }).join('');
 
   kpiTable.innerHTML=EMPLOYEES.map(emp=>{
     const k=calcKpi(emp);
-    const salary=Number(DB.contacts[emp]?.salary||0);
-    const floorData=(DB.floor||[]).filter(f=>f.emp===emp);
-    const totalFloorPts=floorData.filter(f=>f.points==='1').length*1+floorData.filter(f=>f.points==='2').length*2;
-    const ptsDed=totalFloorPts*20;
-    const otHours=Number(DB.contacts[emp]?.otHours||0);
-    const otRate=Number(DB.otRate||0);
-    const otAmount=otHours&&otRate?otHours*otRate:0;
-    const kpiDed=salary?Math.round(salary*(1-k.total/100)):'-';
-    const empTypeT=DB.users?.[emp]?.type||'';
-    const kpiBonusT=empTypeT?Math.round(k.total/100*KPI_BONUS):0;
-    const net=salary?Math.round(salary*k.total/100)-ptsDed+otAmount+kpiBonusT:'-';
+    const ns=calcNetSalary(emp);
     const gradeColor=k.total>=80?'badge-green':k.total>=60?'badge-amber':'badge-red';
     const grade=k.total>=90?'Excellent':k.total>=80?'Very Good':k.total>=70?'Good':k.total>=60?'Average':'Poor';
     const {wQual:wQ,wAtt:wA,wLate:wL,wOrd:wO}=getKpiWeights();
+    const deducStr=ns?`<span style="color:var(--red);font-size:11px">${ns.totalDeductions>0?'-'+ns.totalDeductions.toLocaleString()+' EGP':'—'}</span>`:'—';
+    const netStr=ns?`<strong style="color:var(--green);font-size:14px">${ns.net.toLocaleString()} EGP</strong>`:'—';
     return `<tr>
       <td><strong>${emp}</strong></td>
       <td><span class="badge badge-blue">${k.qualScore}/${Math.round(wQ*100)}</span></td>
@@ -2653,11 +2691,10 @@ function renderKpi(){
       <td><span class="badge badge-amber">${k.lateScore}/${Math.round(wL*100)}</span></td>
       <td><span class="badge badge-teal">${k.ordScore}/${Math.round(wO*100)}</span></td>
       <td><strong style="font-size:15px">${k.total}%</strong></td>
-      <td style="color:var(--text2)">${salary?salary.toLocaleString()+' EGP':'-'}</td>
-      <td style="color:var(--red)">${typeof kpiDed==='number'?kpiDed.toLocaleString()+' EGP':'-'}</td>
-      <td style="color:var(--red)">${ptsDed>0?'-'+ptsDed+' EGP':'—'}</td>
-      <td style="color:var(--green);font-weight:600">${otAmount>0?'+'+otAmount.toLocaleString()+' EGP':`<span style="color:var(--text3)">—</span>`}</td>
-      <td style="color:var(--green);font-weight:700">${typeof net==='number'?net.toLocaleString()+' EGP':'-'}</td>
+      <td style="color:var(--text2)">${ns?ns.base.toLocaleString()+' EGP':'-'}</td>
+      <td style="color:var(--amber)">${ns?'+'+ns.kpiBonus+' EGP':'—'}</td>
+      <td>${deducStr}</td>
+      <td>${netStr}</td>
       <td><span class="badge ${gradeColor}">${grade}</span></td>
     </tr>`;
   }).join('');
@@ -3525,6 +3562,58 @@ window.showHourDetail=function(h,date){
 // ===== USERS =====
 const EMP_TYPE_SALARY = {grad: 5700, student: 5500};
 const KPI_BONUS = 500;
+
+/* ════════════════════════════════════════════════════════════
+   calcNetSalary(emp)
+   ════════════════════════════════════════════════════════════
+   الصيغة الرسمية:
+     Net = Base + KPI_Bonus
+           − (UBL_days × daily) − (ABSENT_days × daily × 2)
+           − (2pt_count × 40) − (1pt_count × 20)
+           − Wrong_penalty
+
+   لا يتخصم من الـ Net: KPI%, overtime, quality marks
+   ════════════════════════════════════════════════════════════ */
+function calcNetSalary(emp){
+  const empType = DB.users?.[emp]?.type || '';
+  const base    = EMP_TYPE_SALARY[empType] || Number(DB.contacts[emp]?.salary || 0);
+  if(!base) return null; // راتب مش متحدد
+
+  // 1. KPI Bonus (500 جنيه مضروبة في KPI%)
+  const k        = calcKpi(emp);
+  const kpiBonus = Math.round((k.total / 100) * KPI_BONUS);
+
+  // 2. Daily rate (للحساب UBL/ABSENT)
+  const daily = Number(DB.contacts[emp]?.daily || (base ? Math.round(base / 26) : 0));
+
+  // 3. UBL & ABSENT من صفحة الـ dayoff
+  const leaves  = (DB.dayoff || []).filter(o => o.emp === emp);
+  const ublDays = leaves.filter(o => o.type === 'UBL').length;
+  const absDays = leaves.filter(o => o.type === 'ABSENT').length;
+  const leaveDeduction = (ublDays * daily) + (absDays * daily * 2);
+
+  // 4. Floor points: 2pt = 40 EGP, 1pt = 20 EGP
+  const floorData = (DB.floor || []).filter(f => f.emp === emp);
+  const pts2      = floorData.filter(f => f.points === '2').length;
+  const pts1      = floorData.filter(f => f.points === '1').length;
+  const ptsDed    = pts2 * 40 + pts1 * 20;
+
+  // 5. Wrong (penalty) — كل Wrong = خصم مباشر من DB.contacts أو 20 EGP ثابت لو مفيش مبلغ
+  const wrongData = floorData.filter(f => f.points === 'penalty');
+  const wrongDed  = wrongData.reduce((s, w) => s + Number(w.deductionAmount || 20), 0);
+
+  const totalDeductions = leaveDeduction + ptsDed + wrongDed;
+  const net = base + kpiBonus - totalDeductions;
+
+  return {
+    base, kpiBonus, kpiPct: k.total,
+    ublDays, absDays, leaveDeduction, daily,
+    pts2, pts1, ptsDed,
+    wrongCount: wrongData.length, wrongDed,
+    totalDeductions,
+    net: Math.max(0, net)   // مش ممكن يبقى سالب
+  };
+}
 
 function renderUsers(){
   const grid = document.getElementById('users-grid');
