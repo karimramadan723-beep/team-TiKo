@@ -349,16 +349,16 @@ label.lbl{font-size:12px;color:var(--text2);display:block;margin-bottom:4px;font
       <div class="field"><label class="lbl">التاريخ</label><input class="inp" id="ord-date" type="date"/></div>
       <div class="field"><label class="lbl">عدد الأوردرات</label><input class="inp" id="ord-count" type="number" placeholder="0"/></div>
       <div class="field"><label class="lbl">الشيفت</label><select class="inp" id="ord-shift">
-        <option>8ص — 4م  (8 ساعات)</option>
-        <option>9ص — 5م  (8 ساعات)</option>
-        <option>10ص — 6م (8 ساعات)</option>
-        <option>11ص — 7م (8 ساعات)</option>
-        <option>3م — 11م (8 ساعات)</option>
-        <option>4م — 12م (8 ساعات)</option>
-        <option>5م — 1ص  (8 ساعات)</option>
-        <option>6م — 2ص  (8 ساعات)</option>
-        <option>7م — 3ص  (8 ساعات)</option>
-        <option>8م — 4ص  (8 ساعات)</option>
+        <option>08:00AM-04:00PM (8hrs)</option>
+        <option>09:00AM-05:00PM (8hrs)</option>
+        <option>10:00AM-06:00PM (8hrs)</option>
+        <option>11:00AM-07:00PM (8hrs)</option>
+        <option>03:00PM-11:00PM (8hrs)</option>
+        <option>04:00PM-12:00AM (8hrs)</option>
+        <option>05:00PM-01:00AM (8hrs)</option>
+        <option>06:00PM-02:00AM (8hrs)</option>
+        <option>07:00PM-03:00AM (8hrs)</option>
+        <option>08:00PM-04:00AM (8hrs)</option>
       </select></div>
       <div class="field">
         <label class="lbl">التاسك (ممكن أكتر من واحد)</label>
@@ -1573,13 +1573,13 @@ function getEmpWorkingAtTime(dateStr, fromTime, toTime){
   const toH = t => { if(!t) return null; const [h,m]=t.split(':').map(Number); return h+m/60; };
   const taskFrom=toH(fromTime), taskTo=toH(toTime);
   const shiftHours={
-    '8ص-4م':{s:8,e:16},'9ص-5م':{s:9,e:17},'10ص-6م':{s:10,e:18},'11ص-7م':{s:11,e:19},
-    '3م-11م':{s:15,e:23},'4م-12م':{s:16,e:24},'5م-1ص':{s:17,e:25},'6م-2ص':{s:18,e:26},
-    '7م-3ص':{s:19,e:27},'8م-4ص':{s:20,e:28}
+    '08:00AM-04:00PM':{s:8,e:16},'09:00AM-05:00PM':{s:9,e:17},'10:00AM-06:00PM':{s:10,e:18},'11:00AM-07:00PM':{s:11,e:19},
+    '03:00PM-11:00PM':{s:15,e:23},'04:00PM-12:00AM':{s:16,e:24},'05:00PM-01:00AM':{s:17,e:25},'06:00PM-02:00AM':{s:18,e:26},
+    '07:00PM-03:00AM':{s:19,e:27},'08:00PM-04:00AM':{s:20,e:28}
   };
   return EMPLOYEES.filter(emp=>{
     const shift=getEmpShiftForDay(emp,dateStr);
-    if(!shift||shift==='أوف') return false;
+    if(!shift||shift==='Off') return false;
     const sh=shiftHours[shift];
     if(!sh) return false; // no time filter if shift unknown → include
     if(taskFrom===null||taskTo===null) return true; // no time specified → show all working
@@ -1596,7 +1596,7 @@ function renderTasks(){
 
   const schedInfo=EMPLOYEES.map(emp=>{
     const shift=getEmpShiftForDay(emp,dateVal);
-    return {emp,shift,isOff:shift==='أوف'};
+    return {emp,shift,isOff:shift==='Off'};
   });
   const working=schedInfo.filter(s=>s.shift&&!s.isOff);
   const off=schedInfo.filter(s=>s.isOff);
@@ -2149,87 +2149,36 @@ function getKpiWeights(){
 }
 function calcKpi(emp){
   const {wQual,wAtt,wLate,wOrd,targetDays,targetOrders}=getKpiWeights();
-
-  // ── كوليتي (250 جنيه = 50% من الـ KPI) ──
+  // Quality
   const qualData=DB.quality[emp]||[];
-  const criticals=qualData.filter(q=>q.type==='critical'||q.type==='enduser').length;
+  const criticals=qualData.filter(q=>q.type==='critical').length;
   const nonCrit=qualData.filter(q=>q.type==='noncritical').length;
   const chatsFilled=Math.min(qualData.length,12);
-  // كريتكل أو End Use = 20% خصم، non-critical = 10% خصم
-  let rawQual=Math.max(0,Math.min(100,100-(criticals*20)-(nonCrit*10)));
+  let rawQual=Math.max(0,Math.min(100,100-(criticals*10)-(nonCrit*5)));
   const qualScore=rawQual*wQual;
-  const qualBonus=Math.round(rawQual/100*250);
-
-  // ── حضور / لوجين ──
+  // Attendance
   const attData=DB.att[emp]||{};
   const attDays=Object.keys(attData).length;
   const attPct=Math.min(100,Math.round(attDays/targetDays*100));
   const attScore=attPct*wAtt;
-
-  // ── طاردي ──
+  // Tardiness
   const lateCount=Object.values(attData).filter(a=>a.late&&a.late!=='').length;
   const latePenalty=Math.min(100,lateCount*10);
   const lateScore=(100-latePenalty)*wLate;
-
-  // ── أوردرات ──
+  // Orders — flatten correctly
   const ordArr=Array.isArray(DB.orders[emp])?DB.orders[emp]:Object.values(DB.orders[emp]||{});
   const totalOrders=ordArr.reduce((s,o)=>s+Number(o.count||0),0);
   const ordPct=Math.min(100,Math.round(totalOrders/targetOrders*100));
   const ordScore=ordPct*wOrd;
-
   const total=Math.min(100,Math.round(qualScore+attScore+lateScore+ordScore));
-
-  // ── الـ 250 الثانية (أداء) ──
-  const perfBonus=Math.round((ordPct/100*125)+((100-latePenalty)/100*50)+(attPct/100*75));
-  const totalKpiBonus=qualBonus+perfBonus;
-
-  // ── خصومات الراتب الأساسي ──
-  const empType=DB.users?.[emp]?.type||'';
-  const baseSalary=empType==='grad'?5700:empType==='student'?5500:Number(DB.contacts[emp]?.salary||0);
-  const daily=baseSalary?Math.round(baseSalary/26):0; // اليومية = الراتب ÷ 26
-  const hourlyRate=daily?Math.round(daily/8):0;       // الساعة = اليومية ÷ 8
-
-  // 1. بوينتس الفلور — 20 EGP للبوينت
-  const floorData=(DB.floor||[]).filter(f=>f.emp===emp);
-  const totalFloorPts=floorData.filter(f=>f.points==='1').length*1+floorData.filter(f=>f.points==='2').length*2;
-  const floorDed=totalFloorPts*20;
-
-  // 2. أبسنت — خصم يومين
-  const absentCount=(DB.dayoff||[]).filter(o=>o.emp===emp&&o.type==='ABSENT'&&o.status==='موافق').length;
-  const absentDed=absentCount*daily*2;
-
-  // 3. UBL — خصم يوم واحد
-  const ublCount=(DB.dayoff||[]).filter(o=>o.emp===emp&&o.type==='UBL'&&o.status==='موافق').length;
-  const ublDed=ublCount*daily;
-
-  // 4. نص يوم (من ريكوست أوف أو أكسكيوز)
-  const halfDayOffCount=(DB.dayoff||[]).filter(o=>o.emp===emp&&o.type==='HALF'&&o.status==='موافق').length;
-  const halfExcuseCount=(DB.excuse||[]).filter(e=>e.emp===emp&&e.type==='نص يوم'&&e.status==='موافق').length;
-  const halfDed=(halfDayOffCount+halfExcuseCount)*Math.round(daily/2);
-
-  // 5. أكسكيوز بالساعات
-  const excuse1h=(DB.excuse||[]).filter(e=>e.emp===emp&&e.type==='ساعة'&&e.status==='موافق').length;
-  const excuse2h=(DB.excuse||[]).filter(e=>e.emp===emp&&e.type==='ساعتين'&&e.status==='موافق').length;
-  const excuseDed=(excuse1h*hourlyRate)+(excuse2h*hourlyRate*2);
-
-  const totalBaseDed=floorDed+absentDed+ublDed+halfDed+excuseDed;
-  const netSalary=baseSalary?baseSalary-totalBaseDed:0;
-
   return {
     total,
-    rawQual,qualScore:Math.round(qualScore),qualBonus,
+    rawQual,qualScore:Math.round(qualScore),
     attPct,attScore:Math.round(attScore),
     latePct:100-latePenalty,lateScore:Math.round(lateScore),
     ordPct,ordScore:Math.round(ordScore),
-    perfBonus,totalKpiBonus,
     chatsFilled,criticals,nonCrit,lateCount,attDays,totalOrders,
-    wQual,wAtt,wLate,wOrd,
-    // خصومات الراتب الأساسي
-    baseSalary,daily,hourlyRate,
-    floorDed,absentDed,ublDed,halfDed,excuseDed,
-    totalBaseDed,netSalary,
-    totalFloorPts,absentCount,ublCount,
-    halfDayOffCount,halfExcuseCount,excuse1h,excuse2h
+    wQual,wAtt,wLate,wOrd
   };
 }
 
@@ -2361,68 +2310,63 @@ function renderKpi(){
 
   kpiGrid.innerHTML=EMPLOYEES.map(emp=>{
     const k=calcKpi(emp);
-    const empType=DB.users?.[emp]?.type||'';
+    const salary=Number(DB.contacts[emp]?.salary||0);
+    const daily=Number(DB.contacts[emp]?.daily||(salary?Math.round(salary/26):0));
+    // Floor points deduction
+    const floorData=(DB.floor||[]).filter(f=>f.emp===emp);
+    const totalFloorPts=floorData.filter(f=>f.points==='1').length*1+floorData.filter(f=>f.points==='2').length*2;
+    const ptsDed=totalFloorPts*20;
+    const kpiDeduction=salary?Math.round(salary*(1-k.total/100)):null;
     const otHours=Number(DB.contacts[emp]?.otHours||0);
     const otRate=Number(DB.otRate||0);
     const otAmount=otHours&&otRate?otHours*otRate:0;
-    const kpiBonus=empType?k.totalKpiBonus:0;
-    const net=k.baseSalary?k.netSalary+otAmount+kpiBonus:null;
+    // KPI bonus from users page
+    const empType=DB.users?.[emp]?.type||'';
+    const kpiBonus=empType?Math.round(k.total/100*KPI_BONUS):0;
+    const net=salary?Math.round(salary*k.total/100)-ptsDed+otAmount+kpiBonus:null;
     const color=k.total>=80?'green':k.total>=60?'amber':'red';
     return `<div class="card" style="border-color:var(--${color})">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
         <div style="font-size:14px;font-weight:700">👤 ${emp}</div>
         <span class="badge badge-${color}" style="font-size:16px;padding:4px 14px">${k.total}%</span>
       </div>
-      <div class="g2" style="gap:8px;margin-bottom:10px">
+      <div class="g2" style="gap:8px">
         <div class="stat"><div class="stat-num" style="color:var(--blue)">${k.rawQual}%</div><div class="stat-lbl">Quality</div></div>
         <div class="stat"><div class="stat-num" style="color:var(--green)">${k.attPct}%</div><div class="stat-lbl">Login %</div></div>
         <div class="stat"><div class="stat-num" style="color:var(--amber)">${k.latePct}%</div><div class="stat-lbl">Tardiness</div></div>
         <div class="stat"><div class="stat-num" style="color:var(--teal)">${k.ordPct}%</div><div class="stat-lbl">Orders</div></div>
       </div>
-      ${k.baseSalary?`<div style="background:var(--bg4);border-radius:8px;padding:10px 12px;font-size:12px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
-          <span style="color:var(--text3)">الراتب الأساسي</span>
-          <span style="font-weight:700">${k.baseSalary.toLocaleString()} EGP</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:2px">
-          <span style="color:var(--text3)">اليومية / الساعة</span>
-          <span>${k.daily} / ${k.hourlyRate} EGP</span>
-        </div>
-        ${k.totalBaseDed>0?`<div style="border-top:1px solid var(--border);margin:6px 0;padding-top:6px">
-          <div style="color:var(--red);font-weight:700;margin-bottom:4px">خصومات الراتب الأساسي:</div>
-          ${k.floorDed>0?`<div style="display:flex;justify-content:space-between"><span>بوينتس فلور (${k.totalFloorPts}pt)</span><span style="color:var(--red)">-${k.floorDed} EGP</span></div>`:''}
-          ${k.absentDed>0?`<div style="display:flex;justify-content:space-between"><span>أبسنت (${k.absentCount}×يومين)</span><span style="color:var(--red)">-${k.absentDed} EGP</span></div>`:''}
-          ${k.ublDed>0?`<div style="display:flex;justify-content:space-between"><span>UBL (${k.ublCount}×يوم)</span><span style="color:var(--red)">-${k.ublDed} EGP</span></div>`:''}
-          ${k.halfDed>0?`<div style="display:flex;justify-content:space-between"><span>نص يوم (${k.halfDayOffCount+k.halfExcuseCount}×)</span><span style="color:var(--red)">-${k.halfDed} EGP</span></div>`:''}
-          ${k.excuseDed>0?`<div style="display:flex;justify-content:space-between"><span>أكسكيوز (${k.excuse1h}س + ${k.excuse2h}×2س)</span><span style="color:var(--red)">-${k.excuseDed} EGP</span></div>`:''}
-        </div>`:''}
-        <div style="border-top:1px solid var(--border);margin:6px 0;padding-top:6px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="color:var(--amber)">🏆 KPI Bonus</span>
-            <span style="color:var(--amber);font-weight:700">+${kpiBonus} EGP <span style="font-size:10px;color:var(--text3)">(ج:${k.qualBonus}+أداء:${k.perfBonus})</span></span>
-          </div>
-          ${otAmount>0?`<div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="color:var(--green)">Overtime</span><span style="color:var(--green);font-weight:700">+${otAmount} EGP</span></div>`:''}
-        </div>
-        <div style="display:flex;justify-content:space-between;background:var(--bg3);border-radius:6px;padding:8px 10px;margin-top:4px">
-          <span style="font-weight:700">💰 الصافي</span>
-          <span style="font-size:15px;font-weight:800;color:var(--green)">${net.toLocaleString()} EGP</span>
-        </div>
-      </div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">نوع الموظف مش محدد في صفحة اليوزرات</div>'}
+      ${daily?`<div style="margin-top:8px;padding:8px;background:var(--bg4);border-radius:8px;font-size:11px;color:var(--text2)">
+        Half-day: <strong>${Math.round(daily/2)} EGP</strong> &nbsp;|&nbsp; 1.5hr: <strong>${Math.round(daily*1.5/8)} EGP</strong>
+      </div>`:''}
+      ${salary?`<div style="margin-top:10px;padding:8px;background:var(--bg4);border-radius:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div><div style="font-size:11px;color:var(--text3)">Full Salary</div><div style="font-size:13px;font-weight:700">${salary.toLocaleString()} EGP</div></div>
+        <div><div style="font-size:11px;color:var(--red)">KPI Deduction</div><div style="font-size:13px;font-weight:700;color:var(--red)">${kpiDeduction.toLocaleString()} EGP</div></div>
+        <div><div style="font-size:11px;color:var(--red)">Points Ded.</div><div style="font-size:13px;font-weight:700;color:var(--red)">${ptsDed>0?'-'+ptsDed:0} EGP</div></div>
+        ${otAmount>0?`<div><div style="font-size:11px;color:var(--green)">Overtime +</div><div style="font-size:13px;font-weight:700;color:var(--green)">+${otAmount.toLocaleString()} EGP</div></div>`:''}
+        ${kpiBonus>0?`<div><div style="font-size:11px;color:var(--amber)">KPI Bonus +</div><div style="font-size:13px;font-weight:700;color:var(--amber)">+${kpiBonus.toLocaleString()} EGP</div></div>`:''}
+        <div><div style="font-size:11px;color:var(--green)">Net</div><div style="font-size:15px;font-weight:800;color:var(--green)">${net.toLocaleString()} EGP</div></div>
+      </div>`:'<div style="font-size:11px;color:var(--text3);margin-top:8px;text-align:center">Salary not entered yet</div>'}
       <div style="height:8px;background:var(--bg4);border-radius:4px;margin-top:10px;overflow:hidden">
         <div style="height:100%;width:${k.total}%;background:var(--${color});border-radius:4px;transition:width .4s"></div>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:5px">${k.chatsFilled}/12 chats · ${k.attDays} days · ${k.lateCount} late · ${k.totalOrders} orders · ${k.totalFloorPts} pts</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:5px">${k.chatsFilled}/12 chats · ${k.attDays} days · ${k.lateCount} tardiness · ${k.totalOrders} orders · ${totalFloorPts} pts</div>
     </div>`;
   }).join('');
 
   kpiTable.innerHTML=EMPLOYEES.map(emp=>{
     const k=calcKpi(emp);
-    const empTypeT=DB.users?.[emp]?.type||'';
+    const salary=Number(DB.contacts[emp]?.salary||0);
+    const floorData=(DB.floor||[]).filter(f=>f.emp===emp);
+    const totalFloorPts=floorData.filter(f=>f.points==='1').length*1+floorData.filter(f=>f.points==='2').length*2;
+    const ptsDed=totalFloorPts*20;
     const otHours=Number(DB.contacts[emp]?.otHours||0);
     const otRate=Number(DB.otRate||0);
     const otAmount=otHours&&otRate?otHours*otRate:0;
-    const kpiBonusT=empTypeT?k.totalKpiBonus:0;
-    const net=k.baseSalary?k.netSalary+otAmount+kpiBonusT:'-';
+    const kpiDed=salary?Math.round(salary*(1-k.total/100)):'-';
+    const empTypeT=DB.users?.[emp]?.type||'';
+    const kpiBonusT=empTypeT?Math.round(k.total/100*KPI_BONUS):0;
+    const net=salary?Math.round(salary*k.total/100)-ptsDed+otAmount+kpiBonusT:'-';
     const gradeColor=k.total>=80?'badge-green':k.total>=60?'badge-amber':'badge-red';
     const grade=k.total>=90?'Excellent':k.total>=80?'Very Good':k.total>=70?'Good':k.total>=60?'Average':'Poor';
     const {wQual:wQ,wAtt:wA,wLate:wL,wOrd:wO}=getKpiWeights();
@@ -2433,10 +2377,10 @@ function renderKpi(){
       <td><span class="badge badge-amber">${k.lateScore}/${Math.round(wL*100)}</span></td>
       <td><span class="badge badge-teal">${k.ordScore}/${Math.round(wO*100)}</span></td>
       <td><strong style="font-size:15px">${k.total}%</strong></td>
-      <td style="color:var(--text2)">${k.baseSalary?k.baseSalary.toLocaleString()+' EGP':'-'}</td>
-      <td style="color:var(--red);font-size:11px">${k.totalBaseDed>0?`-${k.totalBaseDed} EGP`:'—'}</td>
-      <td style="color:var(--amber);font-weight:600">+${kpiBonusT} EGP</td>
-      <td style="color:var(--green);font-weight:600">${otAmount>0?'+'+otAmount+' EGP':'—'}</td>
+      <td style="color:var(--text2)">${salary?salary.toLocaleString()+' EGP':'-'}</td>
+      <td style="color:var(--red)">${typeof kpiDed==='number'?kpiDed.toLocaleString()+' EGP':'-'}</td>
+      <td style="color:var(--red)">${ptsDed>0?'-'+ptsDed+' EGP':'—'}</td>
+      <td style="color:var(--green);font-weight:600">${otAmount>0?'+'+otAmount.toLocaleString()+' EGP':`<span style="color:var(--text3)">—</span>`}</td>
       <td style="color:var(--green);font-weight:700">${typeof net==='number'?net.toLocaleString()+' EGP':'-'}</td>
       <td><span class="badge ${gradeColor}">${grade}</span></td>
     </tr>`;
@@ -2558,7 +2502,7 @@ function updateSwapStatus(id,status){
 function delSwap(id){if(!confirm('مسح؟'))return;DB.swap=DB.swap.filter(s=>s.id!==id);save();renderSwapTable();renderSwapSummary();}
 
 // ===== SCHEDULE =====
-const SHIFTS = ['8ص-4م','9ص-5م','10ص-6م','11ص-7م','3م-11م','4م-12م','5م-1ص','6م-2ص','7م-3ص','8م-4ص','أوف'];
+const SHIFTS = ['08:00AM-04:00PM','09:00AM-05:00PM','10:00AM-06:00PM','11:00AM-07:00PM','03:00PM-11:00PM','04:00PM-12:00AM','05:00PM-01:00AM','06:00PM-02:00AM','07:00PM-03:00AM','08:00PM-04:00AM','Off'];
 let currentSchedWeek = 1;
 
 function selectSchedWeek(w){
@@ -2616,7 +2560,7 @@ function renderSchedGrid(){
       ${days.map(d=>{
         const key=emp+'|'+d;
         const val=saved[key]||'';
-        const isOff=val==='أوف';
+        const isOff=val==='Off';
         const isToday=d===today;
         return `<td style="padding:3px;text-align:center;border-bottom:1px solid var(--border);${isToday?'background:var(--bluebg)':''}">
           <select class="inp inp-sm" id="sc-${emp.replace(/\s/g,'_')}-${d}"
@@ -2634,7 +2578,7 @@ function renderSchedGrid(){
 
 function onSchedChange(sel,emp,date){
   const val=sel.value;
-  const isOff=val==='أوف';
+  const isOff=val==='Off';
   sel.style.background=isOff?'var(--redbg)':'var(--bg3)';
   sel.style.color=isOff?'var(--red)':'var(--text)';
   sel.style.borderColor=isOff?'var(--red)':'var(--border)';
@@ -2673,7 +2617,7 @@ function renderSchedTodayView(){
   const rows=EMPLOYEES.map(emp=>{
     const shift=getEmpShiftForDay(emp,today);
     const todayTasks=(DB.tasks||[]).filter(t=>t.date===today&&(t.employees||[]).includes(emp));
-    const isOff=shift==='أوف';
+    const isOff=shift==='Off';
     const isFemale=FEMALE_EMPLOYEES.includes(emp);
     const breakEntries=(DB.breakCover||[]).filter(b=>b.date===today&&(b.emp===emp||b.cover===emp));
     return {emp,shift,todayTasks,isOff,isFemale,breakEntries};
@@ -2722,7 +2666,7 @@ function renderSchedTodayView(){
 function updateBreakEmpLists(){
   const date=document.getElementById('break-date')?.value||todayStr();
   const timeFrom=document.getElementById('break-time-from')?.value||'';
-  const shiftHours={'8ص-4م':{s:8,e:16},'9ص-5م':{s:9,e:17},'10ص-6م':{s:10,e:18},'11ص-7م':{s:11,e:19},'3م-11م':{s:15,e:23},'4م-12م':{s:16,e:24},'5م-1ص':{s:17,e:25},'6م-2ص':{s:18,e:26},'7م-3ص':{s:19,e:27},'8م-4ص':{s:20,e:28}};
+  const shiftHours={'08:00AM-04:00PM':{s:8,e:16},'09:00AM-05:00PM':{s:9,e:17},'10:00AM-06:00PM':{s:10,e:18},'11:00AM-07:00PM':{s:11,e:19},'03:00PM-11:00PM':{s:15,e:23},'04:00PM-12:00AM':{s:16,e:24},'05:00PM-01:00AM':{s:17,e:25},'06:00PM-02:00AM':{s:18,e:26},'07:00PM-03:00AM':{s:19,e:27},'08:00PM-04:00AM':{s:20,e:28}};
   
   // Get employees working at specified time (or all working if no time specified)
   let workingEmps=[];
@@ -2731,7 +2675,7 @@ function updateBreakEmpLists(){
   
   EMPLOYEES.forEach(emp=>{
     const shift=getEmpShiftForDay(emp,date);
-    if(!shift||shift==='أوف') return;
+    if(!shift||shift==='Off') return;
     const sh=shiftHours[shift];
     if(!sh) return;
     if(tH===null){workingEmps.push({emp,shift});return;}
@@ -2815,7 +2759,7 @@ function renderShiftStats(){
       empShifts[emp][shift]++;
     });
   }
-  const usedShifts=[...new Set(Object.values(empShifts).flatMap(s=>Object.keys(s)))].filter(s=>s!=='أوف');
+  const usedShifts=[...new Set(Object.values(empShifts).flatMap(s=>Object.keys(s)))].filter(s=>s!=='Off');
   if(!usedShifts.length){el.innerHTML='<div style="color:var(--text3);padding:12px;font-size:13px">مفيش شيفتات متسجلة لحد دلوقتي</div>';return;}
   let html=`<table style="width:100%;font-size:12px">
     <thead><tr>
@@ -2826,7 +2770,7 @@ function renderShiftStats(){
     </tr></thead><tbody>
     ${EMPLOYEES.map(emp=>{
       const shifts=empShifts[emp]||{};
-      const offCount=shifts['أوف']||0;
+      const offCount=shifts['Off']||0;
       const total=Object.values(shifts).reduce((s,n)=>s+n,0);
       return `<tr>
         <td style="font-weight:700;padding:8px 10px;border-bottom:1px solid var(--border)">${shortName(emp)}</td>
@@ -2984,28 +2928,22 @@ function doExport(){
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(userRows), 'اليوزرات');
 
   // ── 13. KPI ملخص ────────────────────────────────────────────────
-  const kpiRows = [['الموظف','نوع الموظف','الراتب الأساسي','اليومية','KPI%','كوليتي%','لوجين%','طردي%','أوردرات%','خصم أبسنت','خصم UBL','خصم نص يوم','خصم أكسكيوز','خصم بوينتس','إجمالي الخصم','KPI بونص','الصافي']];
+  const kpiRows = [['الموظف','نوع الموظف','الراتب الأساسي','KPI%','كوليتي%','لوجين%','طردي%','أوردرات%','بوينتس الفلور','خصم البوينتس','بونص KPI','صافي الراتب']];
   EMPLOYEES.forEach(emp=>{
     const k = calcKpi(emp);
+    const salary = Number(DB.contacts[emp]?.salary||0);
     const empType = DB.users?.[emp]?.type||'';
+    const baseSal = EMP_TYPE_SALARY[empType]||salary;
     const empTypeLabel = empType==='grad'?'متخرج':empType==='student'?'طالب':'غير محدد';
-    const kpiBonus=empType?k.totalKpiBonus:0;
+    const floorData=(DB.floor||[]).filter(f=>f.emp===emp);
+    const totalFloorPts=floorData.filter(f=>f.points==='1').length*1+floorData.filter(f=>f.points==='2').length*2;
+    const ptsDed=totalFloorPts*20;
+    const kpiBonus=empType?Math.round(k.total/100*KPI_BONUS):0;
     const otHours=Number(DB.contacts[emp]?.otHours||0);
     const otRate=Number(DB.otRate||0);
     const otAmount=otHours&&otRate?otHours*otRate:0;
-    const net=k.baseSalary?k.netSalary+otAmount+kpiBonus:'';
-    kpiRows.push([
-      emp, empTypeLabel, k.baseSalary||'', k.daily||'',
-      k.total+'%', k.rawQual+'%', k.attPct+'%', k.latePct+'%', k.ordPct+'%',
-      k.absentDed?'-'+k.absentDed+' EGP':'0',
-      k.ublDed?'-'+k.ublDed+' EGP':'0',
-      k.halfDed?'-'+k.halfDed+' EGP':'0',
-      k.excuseDed?'-'+k.excuseDed+' EGP':'0',
-      k.floorDed?'-'+k.floorDed+' EGP':'0',
-      k.totalBaseDed?'-'+k.totalBaseDed+' EGP':'0',
-      kpiBonus?'+'+kpiBonus+' EGP':'0',
-      net?net+' EGP':''
-    ]);
+    const netSalary=baseSal?Math.round(baseSal*k.total/100)-ptsDed+otAmount+kpiBonus:'';
+    kpiRows.push([emp, empTypeLabel, baseSal||'', k.total+'%', k.rawQual+'%', k.attPct+'%', k.latePct+'%', k.ordPct+'%', totalFloorPts+' pt', ptsDed?'-'+ptsDed+' EGP':'0', kpiBonus?'+'+kpiBonus+' EGP':'0', netSalary?netSalary+' EGP':'']);
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(kpiRows), 'KPI ملخص');
 
@@ -3181,15 +3119,15 @@ function renderShiftTimeline(dateStr){
   if(!el) return;
   // الشيفتات وأوقاتها بالساعات
   const shiftHours={
-    '8ص-4م': {s:8,e:16}, '9ص-5م': {s:9,e:17}, '10ص-6م': {s:10,e:18},
-    '11ص-7م': {s:11,e:19}, '3م-11م': {s:15,e:23}, '4م-12م': {s:16,e:24},
-    '5م-1ص': {s:17,e:25}, '6م-2ص': {s:18,e:26}, '7م-3ص': {s:19,e:27}, '8م-4ص': {s:20,e:28}
+    '08:00AM-04:00PM': {s:8,e:16}, '09:00AM-05:00PM': {s:9,e:17}, '10:00AM-06:00PM': {s:10,e:18},
+    '11:00AM-07:00PM': {s:11,e:19}, '03:00PM-11:00PM': {s:15,e:23}, '04:00PM-12:00AM': {s:16,e:24},
+    '05:00PM-01:00AM': {s:17,e:25}, '06:00PM-02:00AM': {s:18,e:26}, '07:00PM-03:00AM': {s:19,e:27}, '08:00PM-04:00AM': {s:20,e:28}
   };
   // جمع شيفت كل موظف في اليوم ده
   const empShifts=[];
   EMPLOYEES.forEach(emp=>{
     const shift=getEmpShiftForDay(emp,dateStr);
-    if(shift&&shift!=='أوف'&&shiftHours[shift]){
+    if(shift&&shift!=='Off'&&shiftHours[shift]){
       empShifts.push({emp:shortName(emp),shift,hours:shiftHours[shift]});
     }
   });
@@ -3245,11 +3183,11 @@ function renderShiftTimeline(dateStr){
 }
 
 window.showHourDetail=function(h,date){
-  const shiftHours={'8ص-4م':{s:8,e:16},'9ص-5م':{s:9,e:17},'10ص-6م':{s:10,e:18},'11ص-7م':{s:11,e:19},'3م-11م':{s:15,e:23},'4م-12م':{s:16,e:24},'5م-1ص':{s:17,e:25},'6م-2ص':{s:18,e:26},'7م-3ص':{s:19,e:27},'8م-4ص':{s:20,e:28}};
+  const shiftHours={'08:00AM-04:00PM':{s:8,e:16},'09:00AM-05:00PM':{s:9,e:17},'10:00AM-06:00PM':{s:10,e:18},'11:00AM-07:00PM':{s:11,e:19},'03:00PM-11:00PM':{s:15,e:23},'04:00PM-12:00AM':{s:16,e:24},'05:00PM-01:00AM':{s:17,e:25},'06:00PM-02:00AM':{s:18,e:26},'07:00PM-03:00AM':{s:19,e:27},'08:00PM-04:00AM':{s:20,e:28}};
   const fmtH=h=>{const real=h>24?h-24:h;const ampm=(real>=12&&real<24)||real===0?'م':'ص';const h12=real===0?12:real>12?real-12:real===12?12:real;return `${h12}${ampm}`;};
   const working=EMPLOYEES.filter(emp=>{
     const shift=getEmpShiftForDay(emp,date);
-    if(!shift||shift==='أوف'||!shiftHours[shift]) return false;
+    if(!shift||shift==='Off'||!shiftHours[shift]) return false;
     return h>=shiftHours[shift].s&&h<shiftHours[shift].e;
   });
   const el=document.getElementById('hour-detail-box');
@@ -3277,7 +3215,7 @@ function renderUsers(){
     const empType = empData.type || '';
     const baseSalary = EMP_TYPE_SALARY[empType] || 0;
     const k = calcKpi(emp);
-    const kpiBonus = baseSalary ? k.totalKpiBonus : 0;
+    const kpiBonus = baseSalary ? Math.round((k.total / 100) * KPI_BONUS) : 0;
     const totalExpected = baseSalary + kpiBonus;
     return `<div class="card" style="${isFemale ? 'border-color:var(--pinkborder)' : 'border-color:var(--purple)'}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
