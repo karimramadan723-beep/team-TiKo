@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام Team WhatsApp المتكامل | كيمو</title>
+    <style>
+        :root {
+            --primary: #25D366; --dark: #075E54; --light: #DCF8C6;
+            --danger: #e74c3c; --warning: #f1c40f; --female-bg: #fff0f5;
+        }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f6; margin: 0; padding: 0; }
+        .header { background: var(--dark); color: white; padding: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .container { display: flex; flex-direction: column; padding: 20px; max-width: 1200px; margin: auto; }
+        
+        /* Dashboard Cards */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); border-top: 5px solid var(--primary); }
+        
+        /* Sections Styling */
+        .section { background: white; padding: 25px; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        h2 { color: var(--dark); border-bottom: 2px solid var(--light); padding-bottom: 10px; }
+        
+        /* Table Styling */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background: #f8f9fa; padding: 12px; border: 1px solid #eee; }
+        td { padding: 12px; border: 1px solid #eee; text-align: center; }
+        .female-row { background-color: var(--female-bg) !important; }
+        
+        /* Form Styling */
+        .input-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #ddd; font-size: 16px; }
+        button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #1ebe57; }
+        .btn-delete { background: var(--danger); }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>نظام إدارة فريق واتساب المطور 🚀</h1>
+    <p>Team Leader: Karim</p>
+</div>
+
+<div class="container">
+    
+    <!-- قسم التنبيهات والملخص -->
+    <div class="stats-grid">
+        <div class="card"><h3>💰 إجمالي رواتب الفريق</h3><p id="total-salaries">0 EGP</p></div>
+        <div class="card"><h3>📦 أوردرات ملغية (الشهر)</h3><p id="cancel-count">0</p></div>
+        <div class="card"><h3>⚠️ تنبيهات النشاط</h3><p>لا يوجد مخاطر حالياً</p></div>
+    </div>
+
+    <!-- قسم الرواتب والأداء -->
+    <div class="section">
+        <h2>👥 أداء الفريق والرواتب الصافية (Net Salary)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>الموظف</th>
+                    <th>الفئة</th>
+                    <th>أخطاء الفلور</th>
+                    <th>الراتب الأساسي</th>
+                    <th>الصافي بعد الخصم</th>
+                </tr>
+            </thead>
+            <tbody id="salaryTableBody">
+                <!-- يتم التحميل من البيانات -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- قسم الأوردرات الملغية (تم إصلاح مشكلة الحفظ) -->
+    <div class="section">
+        <h2>🚫 تسجيل الأوردرات الملغية (حفظ تلقائي)</h2>
+        <div class="input-group">
+            <input type="text" id="orderId" placeholder="رقم الأوردر">
+            <input type="text" id="agentName" placeholder="اسم الموظف">
+            <select id="cancelReason">
+                <option value="">سبب الإلغاء</option>
+                <option value="تأخر الشحن">تأخر الشحن</option>
+                <option value="تغيير رأي">تغيير رأي</option>
+                <option value="خطأ في البيانات">خطأ في البيانات</option>
+                <option value="أخرى">أخرى</option>
+            </select>
+            <button onclick="saveNewOrder()">حفظ الأوردر ✅</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>رقم الأوردر</th>
+                    <th>الموظف</th>
+                    <th>السبب</th>
+                    <th>التاريخ</th>
+                    <th>إجراء</th>
+                </tr>
+            </thead>
+            <tbody id="cancelledOrdersTable">
+                <!-- البيانات المحفوظة تظهر هنا -->
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<script>
+    // 1. بيانات الفريق (تحديث الرواتب والألوان)
+    const teamData = [
+        { name: "هاجر", gender: "F", type: "Graduated", base: 5700, errors: 1 },
+        { name: "ريهام", gender: "F", type: "Student", base: 5500, errors: 0 },
+        { name: "مها", gender: "F", type: "Graduated", base: 5700, errors: 2 },
+        { name: "أحمد", gender: "M", type: "Student", base: 5500, errors: 4 }
+    ];
+
+    // 2. وظيفة حساب وعرض الرواتب
+    function loadTeamSalaries() {
+        const tbody = document.getElementById('salaryTableBody');
+        let total = 0;
+        tbody.innerHTML = '';
+
+        teamData.forEach(member => {
+            const discount = member.errors * 20; // 20 جنيه لكل نقطة خطأ
+            const net = member.base - discount;
+            total += net;
+
+            const row = `<tr class="${member.gender === 'F' ? 'female-row' : ''}">
+                <td>${member.name}</td>
+                <td>${member.type === 'Graduated' ? 'خريج' : 'طالب'}</td>
+                <td>${member.errors}</td>
+                <td>${member.base}</td>
+                <td style="font-weight:bold; color:green">${net} EGP</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+        document.getElementById('total-salaries').innerText = total + " EGP";
+    }
+
+    // 3. نظام الأوردرات الملغية المصلح (LocalStorage)
+    let cancelledOrders = JSON.parse(localStorage.getItem('kimo_cancelled_orders')) || [];
+
+    function saveNewOrder() {
+        const id = document.getElementById('orderId').value;
+        const agent = document.getElementById('agentName').value;
+        const reason = document.getElementById('cancelReason').value;
+
+        if (id && agent && reason) {
+            const newOrder = {
+                id, agent, reason, 
+                date: new Date().toLocaleDateString('ar-EG')
+            };
+            cancelledOrders.push(newOrder);
+            localStorage.setItem('kimo_cancelled_orders', JSON.stringify(cancelledOrders));
+            displayOrders();
+            
+            // مسح الحقول
+            document.getElementById('orderId').value = '';
+            document.getElementById('agentName').value = '';
+            alert("تم الحفظ بنجاح ولن يضيع عند التحديث! ✅");
+        } else {
+            alert("برجاء ملء كافة الخانات");
+        }
+    }
+
+    function displayOrders() {
+        const tbody = document.getElementById('cancelledOrdersTable');
+        tbody.innerHTML = '';
+        cancelledOrders.forEach((order, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${order.id}</td>
+                    <td>${order.agent}</td>
+                    <td>${order.reason}</td>
+                    <td>${order.date}</td>
+                    <td><button class="btn-delete" onclick="deleteOrder(${index})">حذف</button></td>
+                </tr>
+            `;
+        });
+        document.getElementById('cancel-count').innerText = cancelledOrders.length;
+    }
+
+    function deleteOrder(index) {
+        if(confirm("هل أنت متأكد من الحذف؟")) {
+            cancelledOrders.splice(index, 1);
+            localStorage.setItem('kimo_cancelled_orders', JSON.stringify(cancelledOrders));
+            displayOrders();
+        }
+    }
+
+    // تشغيل النظام عند الفتح
+    window.onload = () => {
+        loadTeamSalaries();
+        displayOrders();
+    };
+</script>
+
+</body>
+</html>
